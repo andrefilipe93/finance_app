@@ -5,11 +5,11 @@ import { useAppContext } from '../../context/AppContext';
 import { TransactionType } from '../../types';
 
 const CategoryPieChart: React.FC = () => {
-  const { transactions, categories } = useAppContext();
+  const { cycleTransactions, categories } = useAppContext();
 
   const data = categories
     .map(category => {
-      const total = transactions
+      const total = cycleTransactions
         .filter(t => t.categoryId === category.id && t.type === TransactionType.EXPENSE)
         .reduce((sum, t) => sum + t.amount, 0);
       return {

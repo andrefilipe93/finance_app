@@ -1,4 +1,4 @@
-import { Category, Account } from './types';
+import { Category, Account, CycleSettings } from './types';
 import { TransactionType } from './types';
 
 export const DEFAULT_CATEGORIES: Category[] = [
@@ -11,7 +11,21 @@ export const DEFAULT_CATEGORIES: Category[] = [
   { id: 'cat7', name: 'Outros', icon: '📦', color: '#c9cbcf', type: TransactionType.EXPENSE },
 ];
 
+export const ACCOUNT_ICON_MAP: { [key: string]: string } = {
+  'Carteira': '👛',
+  'Conta Corrente': '🏦',
+  'Poupança': '🐷',
+  'Investimentos': '📈',
+  'Outro': '💰',
+};
+
 export const DEFAULT_ACCOUNTS: Account[] = [
-  { id: 'acc1', name: 'Carteira', initialBalance: 0, type: 'Carteira', startDate: new Date().toISOString().split('T')[0] },
-  { id: 'acc2', name: 'Conta Bancária', initialBalance: 1000, type: 'Conta Corrente', startDate: new Date().toISOString().split('T')[0] },
+  { id: 'acc1', name: 'Carteira', initialBalance: 0, type: 'Carteira', startDate: new Date().toISOString().split('T')[0], icon: ACCOUNT_ICON_MAP['Carteira'] },
+  { id: 'acc2', name: 'Conta Bancária', initialBalance: 1000, type: 'Conta Corrente', startDate: new Date().toISOString().split('T')[0], icon: ACCOUNT_ICON_MAP['Conta Corrente'] },
 ];
+
+export const DEFAULT_CYCLE_SETTINGS: CycleSettings = {
+  frequency: 'monthly',
+  monthlyStartType: 'fixed',
+  startDay: 1,
+};

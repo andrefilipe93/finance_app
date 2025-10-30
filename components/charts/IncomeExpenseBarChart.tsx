@@ -1,37 +1,37 @@
 
-import React from 'react';
+import React, { useMemo } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { useAppContext } from '../../context/AppContext';
 import { TransactionType } from '../../types';
 
 const IncomeExpenseBarChart: React.FC = () => {
-  const { transactions } = useAppContext();
+  const { cycleTransactions, currentCycle } = useAppContext();
   
-  const data = Array.from({ length: 6 }).map((_, i) => {
-    const d = new Date();
-    d.setMonth(d.getMonth() - i);
-    return {
-      name: d.toLocaleString('default', { month: 'short' }),
-      month: d.getMonth(),
-      year: d.getFullYear(),
-      Receita: 0,
-      Despesa: 0,
-    };
-  }).reverse();
-
-  transactions.forEach(t => {
-    const transactionDate = new Date(t.date);
-    const month = transactionDate.getMonth();
-    const year = transactionDate.getFullYear();
-    const dataPoint = data.find(d => d.month === month && d.year === year);
-    if (dataPoint) {
-      if (t.type === TransactionType.INCOME) {
-        dataPoint.Receita += t.amount;
-      } else {
-        dataPoint.Despesa += t.amount;
-      }
+  const data = useMemo(() => {
+    const dailyData: { [key: string]: { name: string; Receita: number; Despesa: number } } = {};
+    const date = new Date(currentCycle.start);
+    
+    while(date <= currentCycle.end) {
+      const formattedDate = date.toLocaleDateString('pt-PT', { day: '2-digit', month: '2-digit'});
+      dailyData[formattedDate] = { name: formattedDate, Receita: 0, Despesa: 0 };
+      date.setDate(date.getDate() + 1);
     }
-  });
+    
+    cycleTransactions.forEach(t => {
+      const transactionDate = new Date(t.date).toLocaleDateString('pt-PT', { day: '2-digit', month: '2-digit'});
+      if(dailyData[transactionDate]) {
+        if(t.type === TransactionType.INCOME) {
+          dailyData[transactionDate].Receita += t.amount;
+        } else {
+          dailyData[transactionDate].Despesa += t.amount;
+        }
+      }
+    });
+
+    return Object.values(dailyData);
+
+  }, [cycleTransactions, currentCycle]);
+
 
   return (
     <ResponsiveContainer width="100%" height="100%">
@@ -43,7 +43,7 @@ const IncomeExpenseBarChart: React.FC = () => {
       >
         <CartesianGrid strokeDasharray="3 3" stroke="rgba(255, 255, 255, 0.1)" />
         <XAxis dataKey="name" tick={{ fill: '#9ca3af' }} />
-        <YAxis tick={{ fill: '#9ca3af' }} tickFormatter={(value) => `€${value/1000}k`}/>
+        <YAxis tick={{ fill: '#9ca3af' }} tickFormatter={(value) => `€${Number(value).toLocaleString('pt-PT')}`}/>
         <Tooltip 
             formatter={(value: number) => value.toLocaleString('pt-PT', { style: 'currency', currency: 'EUR' })}
             cursor={{fill: 'rgba(255, 255, 255, 0.1)'}}
