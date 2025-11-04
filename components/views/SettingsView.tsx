@@ -1,9 +1,39 @@
-import React, { useState, useEffect } from 'react';
+
+import * as React from 'react';
 import { useAppContext } from '../../context/AppContext';
 import { analyzeExpenses } from '../../services/geminiService';
-import { TrashIcon, PencilIcon } from '../icons';
-import { Category, Account, TransactionType, CycleSettings, MonthlyStartType, RecurringTransaction } from '../../types';
+import { TrashIcon, PencilIcon, ArrowLeftIcon, ChevronRightIcon, CalendarIcon, RefreshIcon, SparklesIcon, TagIcon, WalletIcon, DatabaseIcon, DownloadIcon, UploadIcon, DashboardIcon, EyeIcon, EyeOffIcon, SettingsIcon } from '../icons';
+import { Category, Account, TransactionType, CycleSettings, MonthlyStartType, RecurringTransaction, Transaction, ChartSettings } from '../../types';
 import { ACCOUNT_ICON_MAP } from '../../constants';
+import TransactionDetailModal from '../TransactionDetailModal';
+
+// region Sub-components
+// =================================================================================================
+// NOTE: All sub-components are defined here at the top level of the file, outside the main 
+// SettingsView component. This is a critical performance optimization to prevent them from being
+// recreated on every render.
+// =================================================================================================
+
+const getNextDate = (current: Date, frequency: RecurringTransaction['frequency']): Date => {
+    const next = new Date(current);
+    next.setHours(12, 0, 0, 0); // Avoid timezone issues
+    switch (frequency) {
+        case 'daily':
+            next.setDate(next.getDate() + 1);
+            break;
+        case 'weekly':
+            next.setDate(next.getDate() + 7);
+            break;
+        case 'monthly':
+            next.setMonth(next.getMonth() + 1);
+            break;
+        case 'yearly':
+            next.setFullYear(next.getFullYear() + 1);
+            break;
+    }
+    return next;
+}
+
 
 // Modal para Adicionar/Editar Categoria
 interface CategoryModalProps {
@@ -15,12 +45,12 @@ interface CategoryModalProps {
 const CategoryModal: React.FC<CategoryModalProps> = ({ isOpen, onClose, categoryToEdit }) => {
   const { addCategory, updateCategory } = useAppContext();
 
-  const [name, setName] = useState('');
-  const [icon, setIcon] = useState('💰');
-  const [type, setType] = useState<TransactionType>(TransactionType.EXPENSE);
-  const [color, setColor] = useState('#ff6384');
+  const [name, setName] = React.useState('');
+  const [icon, setIcon] = React.useState('💰');
+  const [type, setType] = React.useState<TransactionType>(TransactionType.EXPENSE);
+  const [color, setColor] = React.useState('#ff6384');
 
-  useEffect(() => {
+  React.useEffect(() => {
     if (categoryToEdit) {
       setName(categoryToEdit.name);
       setIcon(categoryToEdit.icon);
@@ -99,13 +129,13 @@ interface AccountModalProps {
 
 const AccountModal: React.FC<AccountModalProps> = ({ isOpen, onClose, accountToEdit }) => {
   const { addAccount, updateAccount } = useAppContext();
-  const [name, setName] = useState('');
-  const [initialBalance, setInitialBalance] = useState('');
-  const [type, setType] = useState('Carteira');
-  const [startDate, setStartDate] = useState(new Date().toISOString().split('T')[0]);
+  const [name, setName] = React.useState('');
+  const [initialBalance, setInitialBalance] = React.useState('');
+  const [type, setType] = React.useState('Carteira');
+  const [startDate, setStartDate] = React.useState(new Date().toISOString().split('T')[0]);
   const accountTypes = Object.keys(ACCOUNT_ICON_MAP);
 
-  useEffect(() => {
+  React.useEffect(() => {
     if (accountToEdit) {
       setName(accountToEdit.name);
       setInitialBalance(String(accountToEdit.initialBalance));
@@ -123,18 +153,28 @@ const AccountModal: React.FC<AccountModalProps> = ({ isOpen, onClose, accountToE
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (name.trim() === '' || initialBalance === '') return;
+    const parsedBalance = parseFloat(initialBalance.replace(',', '.'));
+
+    if (name.trim() === '') {
+        alert("O nome da conta não pode estar vazio.");
+        return;
+    }
+    if (isNaN(parsedBalance)) {
+        alert("Por favor, insira um saldo inicial numérico válido.");
+        return;
+    }
+
     const accountData = {
       name,
-      initialBalance: parseFloat(initialBalance.replace(',', '.')),
+      initialBalance: parsedBalance,
       type,
       startDate,
       icon: ACCOUNT_ICON_MAP[type] || '💰',
     };
     if (accountToEdit) {
-      updateAccount({ ...accountData, id: accountToEdit.id });
+      updateAccount({ ...accountToEdit, ...accountData });
     } else {
-      addAccount(accountData);
+      addAccount({ ...accountData, isActive: true });
     }
     onClose();
   };
@@ -189,11 +229,11 @@ interface RecurringModalProps {
 
 const RecurringTransactionModal: React.FC<RecurringModalProps> = ({ isOpen, onClose, recurringToEdit }) => {
     const { categories, accounts, addRecurringTransaction, updateRecurringTransaction } = useAppContext();
-    const [formData, setFormData] = useState<Omit<RecurringTransaction, 'id' | 'lastGeneratedDate'>>({
+    const [formData, setFormData] = React.useState<Omit<RecurringTransaction, 'id' | 'lastGeneratedDate'>>({
         description: '',
         amount: 0,
         type: TransactionType.EXPENSE,
-        accountId: accounts[0]?.id || '',
+        accountId: '',
         categoryId: '',
         frequency: 'monthly',
         startDate: new Date().toISOString().split('T')[0],
@@ -202,16 +242,17 @@ const RecurringTransactionModal: React.FC<RecurringModalProps> = ({ isOpen, onCl
         isActive: true,
     });
     
-    useEffect(() => {
+    React.useEffect(() => {
+        const activeAccounts = accounts.filter(a => a.isActive);
         const expenseCategories = categories.filter(c => c.type === TransactionType.EXPENSE);
         if (recurringToEdit) {
-            setFormData({ ...recurringToEdit, amount: recurringToEdit.amount });
+            setFormData({ ...recurringToEdit, amount: recurringToEdit.amount, endDate: recurringToEdit.endDate || '' });
         } else {
             setFormData({
                 description: '',
                 amount: 0,
                 type: TransactionType.EXPENSE,
-                accountId: accounts[0]?.id || '',
+                accountId: activeAccounts[0]?.id || '',
                 categoryId: expenseCategories[0]?.id || '',
                 frequency: 'monthly',
                 startDate: new Date().toISOString().split('T')[0],
@@ -243,15 +284,23 @@ const RecurringTransactionModal: React.FC<RecurringModalProps> = ({ isOpen, onCl
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-        const { description, amount, categoryId, accountId } = formData;
-        if (!description || !amount || !categoryId || !accountId) {
-            alert("Por favor, preencha todos os campos obrigatórios.");
+        
+        const parsedAmount = parseFloat(String(formData.amount).replace(',', '.'));
+
+        if (isNaN(parsedAmount) || parsedAmount <= 0) {
+            alert("Por favor, insira um valor numérico válido e positivo.");
+            return;
+        }
+        
+        const { description, categoryId, accountId } = formData;
+        if (!description || !categoryId || !accountId) {
+            alert("Por favor, preencha a descrição, categoria e conta.");
             return;
         }
 
-        const dataToSave = { ...formData, amount: parseFloat(String(formData.amount).replace(',', '.')) };
+        const dataToSave = { ...formData, amount: parsedAmount, endDate: formData.endDate || undefined };
         if (recurringToEdit) {
-            updateRecurringTransaction({ ...dataToSave, id: recurringToEdit.id });
+            updateRecurringTransaction({ ...recurringToEdit, ...dataToSave });
         } else {
             addRecurringTransaction(dataToSave);
         }
@@ -261,72 +310,80 @@ const RecurringTransactionModal: React.FC<RecurringModalProps> = ({ isOpen, onCl
     if (!isOpen) return null;
 
     const availableCategories = categories.filter(c => c.type === formData.type);
+    const activeAccounts = accounts.filter(a => a.isActive);
+
+    const commonSelectClasses = "mt-1 block w-full bg-gray-100 dark:bg-gray-700 border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 py-3 px-4 text-base";
+    const commonInputClasses = "mt-1 block w-full bg-gray-100 dark:bg-gray-700 border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 py-3 px-4 text-base";
     
     return (
         <div className="fixed inset-0 bg-black bg-opacity-50 z-[60] flex justify-center items-center p-4">
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl p-6 w-full max-w-lg transform transition-all">
-            <h2 className="text-2xl font-bold mb-4">{recurringToEdit ? 'Editar' : 'Novo'} Movimento Recorrente</h2>
-            <form onSubmit={handleSubmit} className="space-y-4 max-h-[80vh] overflow-y-auto pr-2">
-                <div>
-                    <div className="flex rounded-md shadow-sm">
-                      <button type="button" onClick={() => handleTypeChange(TransactionType.EXPENSE)} className={`w-full px-4 py-2 rounded-l-md transition ${formData.type === TransactionType.EXPENSE ? 'bg-red-500 text-white' : 'bg-gray-200 dark:bg-gray-700'}`}>Despesa</button>
-                      <button type="button" onClick={() => handleTypeChange(TransactionType.INCOME)} className={`w-full px-4 py-2 rounded-r-md transition ${formData.type === TransactionType.INCOME ? 'bg-green-500 text-white' : 'bg-gray-200 dark:bg-gray-700'}`}>Receita</button>
-                    </div>
+            <form onSubmit={handleSubmit} className="max-h-[80vh] overflow-y-auto pr-2">
+                <div className="flex justify-between items-center mb-4">
+                  <h2 className="text-2xl font-bold">{recurringToEdit ? 'Editar' : 'Novo'} Movimento Recorrente</h2>
+                   <button type="button" onClick={onClose} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 text-3xl leading-none">&times;</button>
                 </div>
-                <div>
-                    <label className="block text-sm font-medium">Título</label>
-                    <input type="text" name="description" value={formData.description} onChange={handleChange} className="mt-1 block w-full bg-gray-100 dark:bg-gray-700 rounded-md shadow-sm" required />
-                </div>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="my-8 space-y-6">
                     <div>
-                        <label className="block text-sm font-medium">Valor</label>
-                         <div className="relative mt-1">
-                            <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3"><span className="text-gray-500 sm:text-sm">€</span></div>
-                            <input type="text" inputMode="decimal" name="amount" value={formData.amount} onChange={handleChange} placeholder="0,00" className="block w-full bg-gray-100 dark:bg-gray-700 rounded-md shadow-sm pl-7" required />
+                        <label className="block text-sm text-center font-medium text-gray-700 dark:text-gray-300 mb-2">Tipo de movimento</label>
+                        <div className="flex rounded-md shadow-sm">
+                          <button type="button" onClick={() => handleTypeChange(TransactionType.EXPENSE)} className={`w-full px-4 py-3 text-lg font-semibold rounded-l-md transition ${formData.type === TransactionType.EXPENSE ? 'bg-red-500 text-white' : 'bg-gray-200 dark:bg-gray-700'}`}>Despesa</button>
+                          <button type="button" onClick={() => handleTypeChange(TransactionType.INCOME)} className={`w-full px-4 py-3 text-lg font-semibold rounded-r-md transition ${formData.type === TransactionType.INCOME ? 'bg-green-500 text-white' : 'bg-gray-200 dark:bg-gray-700'}`}>Receita</button>
                         </div>
                     </div>
                     <div>
-                        <label className="block text-sm font-medium">Frequência</label>
-                        <select name="frequency" value={formData.frequency} onChange={handleChange} className="mt-1 block w-full bg-gray-100 dark:bg-gray-700 rounded-md shadow-sm">
+                        <label className="block text-sm text-center font-medium text-gray-700 dark:text-gray-300 mb-2">Valor</label>
+                         <div className="relative mt-1">
+                            <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-4"><span className="text-gray-500 sm:text-lg">€</span></div>
+                            <input type="text" inputMode="decimal" name="amount" value={String(formData.amount).replace('.',',')} onChange={handleChange} placeholder="0,00" className="block w-full bg-gray-100 dark:bg-gray-700 rounded-md shadow-sm pl-10 pr-4 py-3 text-2xl text-center font-bold" required />
+                        </div>
+                    </div>
+                    <div>
+                        <label className="block text-sm text-center font-medium text-gray-700 dark:text-gray-300 mb-2">Título</label>
+                        <input type="text" name="description" value={formData.description} onChange={handleChange} className={commonInputClasses} placeholder="Ex: Renda, Eletricidade..." required />
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                        <div>
+                            <label className="block text-sm text-center font-medium text-gray-700 dark:text-gray-300 mb-2">Categoria</label>
+                            <select name="categoryId" value={formData.categoryId} onChange={handleChange} className={commonSelectClasses} required>
+                              {availableCategories.map(c => <option key={c.id} value={c.id}>{c.icon} {c.name}</option>)}
+                            </select>
+                        </div>
+                        <div>
+                            <label className="block text-sm text-center font-medium text-gray-700 dark:text-gray-300 mb-2">Conta</label>
+                            <select name="accountId" value={formData.accountId} onChange={handleChange} className={commonSelectClasses} required>
+                              {activeAccounts.map(a => <option key={a.id} value={a.id}>{a.icon} {a.name}</option>)}
+                            </select>
+                        </div>
+                    </div>
+                    <div>
+                        <label className="block text-sm text-center font-medium text-gray-700 dark:text-gray-300 mb-2">Frequência</label>
+                        <select name="frequency" value={formData.frequency} onChange={handleChange} className={commonSelectClasses}>
                             <option value="daily">Diária</option>
                             <option value="weekly">Semanal</option>
                             <option value="monthly">Mensal</option>
                             <option value="yearly">Anual</option>
                         </select>
                     </div>
-                </div>
-                 <div className="grid grid-cols-2 gap-4">
-                    <div>
-                        <label className="block text-sm font-medium">Categoria</label>
-                        <select name="categoryId" value={formData.categoryId} onChange={handleChange} className="mt-1 block w-full bg-gray-100 dark:bg-gray-700 rounded-md shadow-sm" required>
-                          {availableCategories.map(c => <option key={c.id} value={c.id}>{c.icon} {c.name}</option>)}
-                        </select>
+                     <div className="grid grid-cols-2 gap-4">
+                        <div>
+                            <label className="block text-sm text-center font-medium text-gray-700 dark:text-gray-300 mb-2">Data de Início</label>
+                            <input type="date" name="startDate" value={formData.startDate} onChange={handleChange} className={commonInputClasses} required />
+                        </div>
+                         <div>
+                            <label className="block text-sm text-center font-medium text-gray-700 dark:text-gray-300 mb-2">Data de Fim (opcional)</label>
+                            <input type="date" name="endDate" value={formData.endDate} onChange={handleChange} className={commonInputClasses} />
+                        </div>
                     </div>
-                    <div>
-                        <label className="block text-sm font-medium">Conta</label>
-                        <select name="accountId" value={formData.accountId} onChange={handleChange} className="mt-1 block w-full bg-gray-100 dark:bg-gray-700 rounded-md shadow-sm" required>
-                          {accounts.map(a => <option key={a.id} value={a.id}>{a.icon} {a.name}</option>)}
-                        </select>
-                    </div>
-                </div>
-                 <div className="grid grid-cols-2 gap-4">
-                    <div>
-                        <label className="block text-sm font-medium">Data de Início</label>
-                        <input type="date" name="startDate" value={formData.startDate} onChange={handleChange} className="mt-1 block w-full bg-gray-100 dark:bg-gray-700 rounded-md shadow-sm" required />
-                    </div>
-                     <div>
-                        <label className="block text-sm font-medium">Data de Fim (opcional)</label>
-                        <input type="date" name="endDate" value={formData.endDate} onChange={handleChange} className="mt-1 block w-full bg-gray-100 dark:bg-gray-700 rounded-md shadow-sm" />
-                    </div>
-                </div>
-                <div className="flex items-start justify-between">
-                    <div className="flex items-center gap-2">
-                        <input type="checkbox" id="isVariable" name="isVariable" checked={formData.isVariable} onChange={handleChange} className="h-4 w-4 rounded text-blue-600 focus:ring-blue-500" />
-                        <label htmlFor="isVariable" className="text-sm font-medium">O valor pode variar</label>
-                    </div>
-                    <div className="flex items-center gap-2">
-                        <label htmlFor="isActive" className="text-sm font-medium">Ativa</label>
-                        <input type="checkbox" id="isActive" name="isActive" checked={formData.isActive} onChange={handleChange} className="h-4 w-4 rounded text-blue-600 focus:ring-blue-500" />
+                    <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+                        <div className="flex items-center gap-2">
+                            <input type="checkbox" id="isVariable" name="isVariable" checked={formData.isVariable} onChange={handleChange} className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500" />
+                            <label htmlFor="isVariable" className="text-sm font-medium text-gray-800 dark:text-gray-200">O valor pode variar</label>
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <label htmlFor="isActive" className="text-sm font-medium text-gray-800 dark:text-gray-200">Ativa</label>
+                            <input type="checkbox" id="isActive" name="isActive" checked={formData.isActive} onChange={handleChange} className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500" />
+                        </div>
                     </div>
                 </div>
 
@@ -340,14 +397,35 @@ const RecurringTransactionModal: React.FC<RecurringModalProps> = ({ isOpen, onCl
     );
 };
 
+const ToggleButton: React.FC<{
+  active: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+  position?: 'left' | 'right' | 'middle';
+}> = ({ active, onClick, children, position }) => {
+    const baseClasses = "w-full px-4 py-2 transition duration-200 ease-in-out text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 dark:focus:ring-offset-gray-800";
+    const activeClasses = "bg-blue-600 text-white shadow-sm";
+    const inactiveClasses = "bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600";
+    
+    let roundedClasses = '';
+    if (position === 'left') roundedClasses = 'rounded-l-lg';
+    else if (position === 'right') roundedClasses = 'rounded-r-lg';
+    else if (!position) roundedClasses = 'rounded-lg';
+
+    return (
+        <button type="button" onClick={onClick} className={`${baseClasses} ${active ? activeClasses : inactiveClasses} ${roundedClasses}`}>
+            {children}
+        </button>
+    )
+};
 
 // Componente para Configuração do Ciclo
 const CycleSettingsComponent: React.FC = () => {
     const { cycleSettings, updateCycleSettings } = useAppContext();
-    const [settings, setSettings] = useState<CycleSettings>(cycleSettings);
-    const [isSaved, setIsSaved] = useState(false);
+    const [settings, setSettings] = React.useState<CycleSettings>(cycleSettings);
+    const [isSaved, setIsSaved] = React.useState(false);
 
-    useEffect(() => {
+    React.useEffect(() => {
         setSettings(cycleSettings);
     }, [cycleSettings]);
 
@@ -357,8 +435,9 @@ const CycleSettingsComponent: React.FC = () => {
         setTimeout(() => setIsSaved(false), 2000);
     };
 
-    const handleFrequencyChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-        const newFrequency = e.target.value as 'monthly' | 'weekly';
+    const handleFrequencyChange = (newFrequency: 'monthly' | 'weekly') => {
+        if (newFrequency === settings.frequency) return;
+        
         if (newFrequency === 'monthly') {
             setSettings({
                 frequency: 'monthly',
@@ -372,341 +451,853 @@ const CycleSettingsComponent: React.FC = () => {
             });
         }
     };
+    
+    const handleMonthlyTypeChange = (newType: 'fixed' | 'weekday') => {
+        const isCurrentlyFixed = settings.monthlyStartType === 'fixed';
+        if ((newType === 'fixed' && isCurrentlyFixed) || (newType === 'weekday' && !isCurrentlyFixed)) return;
 
-    const handleMonthlyTypeChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-        const newType = e.target.value as MonthlyStartType;
-        setSettings(prev => ({
-            ...prev,
-            monthlyStartType: newType,
-            startDay: newType === 'fixed' ? 1 : 1 // Default to day 1 or Monday
-        }));
-    };
-
-    const handleStartDayChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-        setSettings(prev => ({
-            ...prev,
-            startDay: parseInt(e.target.value)
-        }));
+        if (newType === 'fixed') {
+            setSettings(prev => ({
+                ...prev,
+                monthlyStartType: 'fixed',
+                startDay: 1
+            }));
+        } else { // weekday
+             setSettings(prev => ({
+                ...prev,
+                monthlyStartType: 'first_weekday', // Default to first weekday
+                startDay: 1 // Default to Monday
+            }));
+        }
     };
     
-    const daysOfMonth = Array.from({length: 28}, (_, i) => i + 1);
+    const handleSettingsChange = <K extends keyof CycleSettings>(key: K, value: CycleSettings[K]) => {
+        setSettings(prev => ({ ...prev, [key]: value }));
+    };
+
+    const daysOfMonth = Array.from({ length: 28 }, (_, i) => i + 1);
     const daysOfWeek = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'];
+    const occurrences = [{value: 'first_weekday', label: 'Primeiro(a)'}, {value: 'last_weekday', label: 'Último(a)'}];
+
+    const summaryText = React.useMemo(() => {
+        const { frequency, startDay, monthlyStartType } = settings;
+        if (frequency === 'weekly') {
+            return `O seu ciclo semanal começa toda ${daysOfWeek[startDay]}.`;
+        }
+        if (monthlyStartType === 'fixed') {
+            return `O seu ciclo mensal começa no dia ${startDay} de cada mês.`;
+        }
+        const occurrenceText = monthlyStartType === 'first_weekday' ? 'primeira' : 'última';
+        return `O seu ciclo mensal começa na ${occurrenceText} ${daysOfWeek[startDay]} de cada mês.`;
+    }, [settings]);
+    
 
     return (
-        <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-md">
-            <h2 className="text-xl font-semibold mb-4">Ciclo Financeiro</h2>
-            <p className="text-gray-600 dark:text-gray-400 mb-4">
+        <div className="space-y-4">
+            <p className="text-gray-600 dark:text-gray-400 mb-6">
                 Defina o período para análise das suas finanças no dashboard.
             </p>
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
-                <div className="md:col-span-1">
-                    <label htmlFor="cycle-frequency" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Frequência</label>
-                    <select 
-                        id="cycle-frequency"
-                        value={settings.frequency}
-                        onChange={handleFrequencyChange}
-                        className="mt-1 block w-full bg-gray-100 dark:bg-gray-700 border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
-                    >
-                        <option value="monthly">Mensal</option>
-                        <option value="weekly">Semanal</option>
-                    </select>
+            <div className="space-y-6">
+                <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Frequência</label>
+                    <div className="flex">
+                        <ToggleButton active={settings.frequency === 'monthly'} onClick={() => handleFrequencyChange('monthly')} position="left">Mensal</ToggleButton>
+                        <ToggleButton active={settings.frequency === 'weekly'} onClick={() => handleFrequencyChange('weekly')} position="right">Semanal</ToggleButton>
+                    </div>
                 </div>
+                
                 {settings.frequency === 'monthly' && (
-                    <div className="md:col-span-1">
-                        <label htmlFor="monthly-type" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Tipo de Início</label>
-                        <select
-                            id="monthly-type"
-                            value={settings.monthlyStartType}
-                            onChange={handleMonthlyTypeChange}
-                            className="mt-1 block w-full bg-gray-100 dark:bg-gray-700 border-gray-300 dark:border-gray-600 rounded-md shadow-sm"
-                        >
-                            <option value="fixed">Data Fixa</option>
-                            <option value="first_weekday">Primeiro(a)</option>
-                            <option value="last_weekday">Último(a)</option>
+                    <div className="p-4 bg-gray-50 dark:bg-gray-900/50 rounded-lg space-y-4 border border-gray-200 dark:border-gray-700">
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Tipo de início do mês</label>
+                         <div className="flex">
+                           <ToggleButton active={settings.monthlyStartType === 'fixed'} onClick={() => handleMonthlyTypeChange('fixed')} position="left">Data Fixa</ToggleButton>
+                           <ToggleButton active={settings.monthlyStartType !== 'fixed'} onClick={() => handleMonthlyTypeChange('weekday')} position="right">Dia da Semana</ToggleButton>
+                        </div>
+
+                        {settings.monthlyStartType === 'fixed' ? (
+                            <div>
+                                <label htmlFor="cycle-start-day" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Dia de Início</label>
+                                <select id="cycle-start-day" value={settings.startDay} onChange={e => handleSettingsChange('startDay', parseInt(e.target.value))} className="block w-full bg-gray-100 dark:bg-gray-700 border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500">
+                                    {daysOfMonth.map(day => <option key={day} value={day}>{day}</option>)}
+                                </select>
+                            </div>
+                        ) : (
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label htmlFor="cycle-occurrence" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Ocorrência</label>
+                                    <select id="cycle-occurrence" value={settings.monthlyStartType} onChange={e => handleSettingsChange('monthlyStartType', e.target.value as MonthlyStartType)} className="block w-full bg-gray-100 dark:bg-gray-700 border-gray-300 dark:border-gray-600 rounded-md shadow-sm">
+                                        {occurrences.map(occ => <option key={occ.value} value={occ.value}>{occ.label}</option>)}
+                                    </select>
+                                </div>
+                                <div>
+                                    <label htmlFor="cycle-weekday" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Dia da Semana</label>
+                                    <select id="cycle-weekday" value={settings.startDay} onChange={e => handleSettingsChange('startDay', parseInt(e.target.value))} className="block w-full bg-gray-100 dark:bg-gray-700 border-gray-300 dark:border-gray-600 rounded-md shadow-sm">
+                                        {daysOfWeek.map((day, index) => <option key={index} value={index}>{day}</option>)}
+                                    </select>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                )}
+
+                {settings.frequency === 'weekly' && (
+                    <div className="p-4 bg-gray-50 dark:bg-gray-900/50 rounded-lg border border-gray-200 dark:border-gray-700">
+                        <label htmlFor="cycle-start-weekday" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Dia de Início da Semana</label>
+                        <select id="cycle-start-weekday" value={settings.startDay} onChange={e => handleSettingsChange('startDay', parseInt(e.target.value))} className="block w-full bg-gray-100 dark:bg-gray-700 border-gray-300 dark:border-gray-600 rounded-md shadow-sm">
+                            {daysOfWeek.map((day, index) => <option key={index} value={index}>{day}</option>)}
                         </select>
                     </div>
                 )}
-                 <div className="md:col-span-1">
-                    <label htmlFor="cycle-start" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Dia de Início</label>
-                    <select
-                        id="cycle-start"
-                        value={settings.startDay}
-                        onChange={handleStartDayChange}
-                        className="mt-1 block w-full bg-gray-100 dark:bg-gray-700 border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
-                    >
-                        {settings.frequency === 'weekly' || settings.monthlyStartType !== 'fixed'
-                            ? daysOfWeek.map((day, index) => <option key={index} value={index}>{day}</option>)
-                            : daysOfMonth.map(day => <option key={day} value={day}>Dia {day}</option>)
-                        }
-                    </select>
+            </div>
+
+            <div className="p-4 bg-blue-50 dark:bg-blue-900/30 rounded-lg border border-blue-200 dark:border-blue-800">
+                <p className="text-sm text-blue-800 dark:text-blue-200 text-center font-medium">{summaryText}</p>
+            </div>
+            
+            <div className="flex justify-end pt-2">
+                <button
+                    onClick={handleSave}
+                    className={`px-6 py-2 rounded-lg font-semibold transition duration-300 ease-in-out ${isSaved ? 'bg-green-500 text-white' : 'bg-blue-600 text-white hover:bg-blue-700'}`}
+                >
+                    {isSaved ? 'Guardado!' : 'Guardar'}
+                </button>
+            </div>
+        </div>
+    );
+};
+
+const StatCard: React.FC<{ title: string; value: string; }> = ({ title, value }) => (
+    <div className="bg-gray-100 dark:bg-gray-700/50 p-4 rounded-lg text-center">
+        <h4 className="text-sm text-gray-500 dark:text-gray-400 font-medium">{title}</h4>
+        <p className="text-2xl font-bold text-gray-800 dark:text-gray-200 mt-1">{value}</p>
+    </div>
+);
+
+interface CategoryDetailProps {
+    categoryId: string;
+    onBack: () => void;
+}
+
+const CategoryDetail: React.FC<CategoryDetailProps> = ({ categoryId, onBack }) => {
+    const { categories, transactions, deleteCategory, categoryAverages } = useAppContext();
+    const [isCategoryModalOpen, setCategoryModalOpen] = React.useState(false);
+    const [selectedTransaction, setSelectedTransaction] = React.useState<(Transaction & { runningBalance?: number }) | null>(null);
+
+    const category = React.useMemo(() => categories.find(c => c.id === categoryId), [categories, categoryId]);
+
+    const categoryTransactions = React.useMemo(() => {
+        if (!category) return [];
+        return transactions
+            .filter(t => t.categoryId === categoryId)
+            .sort((a, b) => new Date(`${b.date}T${b.time || '00:00'}`).getTime() - new Date(`${a.date}T${a.time || '00:00'}`).getTime());
+    }, [transactions, categoryId, category]);
+
+    const stats = React.useMemo(() => {
+        if (!category) return { totalAmount: 0, transactionCount: 0, averageValue: 0, monthlyAverage: 0 };
+
+        const totalAmount = categoryTransactions.reduce((sum, t) => sum + t.amount, 0);
+        const transactionCount = categoryTransactions.length;
+        const averageValue = transactionCount > 0 ? totalAmount / transactionCount : 0;
+        const monthlyAverage = categoryAverages.get(categoryId) || 0;
+
+        return { totalAmount, transactionCount, averageValue, monthlyAverage };
+    }, [category, categoryTransactions, categoryAverages, categoryId]);
+
+    const handleDelete = () => {
+        if (category) {
+            if (transactions.some(t => t.categoryId === category.id)) {
+                alert("Não é possível eliminar categorias com transações associadas.");
+                return;
+            }
+            if (window.confirm(`Tem a certeza que deseja eliminar a categoria "${category.name}"?`)) {
+                deleteCategory(category.id);
+            }
+        }
+    };
+    
+    React.useEffect(() => {
+        const categoryExists = categories.some(c => c.id === categoryId);
+        if (!categoryExists) {
+            onBack();
+        }
+    }, [categories, categoryId, onBack]);
+
+    if (!category) {
+        return null; 
+    }
+
+    const typeText = category.type === TransactionType.EXPENSE ? 'Despesa' : 'Receita';
+    const totalTitle = category.type === TransactionType.EXPENSE ? 'Total Gasto' : 'Total Recebido';
+
+    return (
+        <div className="space-y-6">
+            <button onClick={onBack} className="flex items-center gap-2 text-sm font-semibold text-gray-600 dark:text-gray-300 hover:text-blue-500 dark:hover:text-blue-400 transition-colors">
+                <ArrowLeftIcon className="w-5 h-5" />
+                <span>Todas as Categorias</span>
+            </button>
+
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                <div className="flex items-center gap-4">
+                    <span className="text-4xl">{category.icon}</span>
+                    <div>
+                        <h2 className="text-2xl font-bold">{category.name}</h2>
+                        <span className={`text-xs font-bold uppercase px-2 py-1 rounded ${category.type === TransactionType.EXPENSE ? 'bg-red-100 text-red-800 dark:bg-red-900/50 dark:text-red-300' : 'bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-300'}`}>
+                            {typeText}
+                        </span>
+                    </div>
                 </div>
-                <div className="md:col-span-1">
-                    <button
-                        onClick={handleSave}
-                        className="w-full px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-all"
-                    >
-                        {isSaved ? 'Salvo!' : 'Salvar Ciclo'}
-                    </button>
+                <div className="flex gap-2 self-end sm:self-center">
+                    <button onClick={() => setCategoryModalOpen(true)} className="flex items-center gap-2 px-3 py-2 text-sm bg-gray-200 dark:bg-gray-700 rounded-md hover:bg-gray-300 dark:hover:bg-gray-600"><PencilIcon className="w-4 h-4" /> Editar</button>
+                    <button onClick={handleDelete} className="flex items-center gap-2 px-3 py-2 text-sm bg-red-100 text-red-700 dark:bg-red-900/50 dark:text-red-300 rounded-md hover:bg-red-200 dark:hover:bg-red-800"><TrashIcon className="w-4 h-4" /> Eliminar</button>
+                </div>
+            </div>
+
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <StatCard title={totalTitle} value={stats.totalAmount.toLocaleString('pt-PT', { style: 'currency', currency: 'EUR' })} />
+                <StatCard title="Nº de Movimentos" value={stats.transactionCount.toString()} />
+                <StatCard title="Valor Médio" value={stats.averageValue.toLocaleString('pt-PT', { style: 'currency', currency: 'EUR' })} />
+                <StatCard title="Média Mensal (6m)" value={stats.monthlyAverage.toLocaleString('pt-PT', { style: 'currency', currency: 'EUR' })} />
+            </div>
+
+            <div>
+                <h3 className="text-xl font-semibold mb-2">Histórico de Movimentos</h3>
+                <div className="bg-gray-50 dark:bg-gray-900/50 rounded-lg max-h-96 overflow-y-auto">
+                    {categoryTransactions.length > 0 ? (
+                        <ul className="divide-y divide-gray-200 dark:divide-gray-700">
+                            {categoryTransactions.map(t => (
+                                <li key={t.id} onClick={() => setSelectedTransaction(t)} className="p-3 flex justify-between items-center cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700">
+                                    <div>
+                                        <p className="font-semibold">{t.description}</p>
+                                        <p className="text-sm text-gray-500 dark:text-gray-400">{new Date(t.date).toLocaleDateString('pt-PT', { timeZone: 'UTC' })}</p>
+                                    </div>
+                                    <p className={`font-bold ${t.type === TransactionType.EXPENSE ? 'text-red-500' : 'text-green-500'}`}>
+                                        {t.type === TransactionType.INCOME ? '+' : '-'}{t.amount.toLocaleString('pt-PT', { style: 'currency', currency: 'EUR' })}
+                                    </p>
+                                </li>
+                            ))}
+                        </ul>
+                    ) : (
+                        <p className="text-center text-gray-500 p-8">Nenhum movimento encontrado para esta categoria.</p>
+                    )}
+                </div>
+            </div>
+
+            <CategoryModal isOpen={isCategoryModalOpen} onClose={() => setCategoryModalOpen(false)} categoryToEdit={category} />
+            <TransactionDetailModal transaction={selectedTransaction} onClose={() => setSelectedTransaction(null)} />
+        </div>
+    );
+};
+
+interface CategoryListItemProps {
+    category: Category;
+    transactionCount: number;
+    onSelect: (id: string) => void;
+}
+  
+const CategoryListItem: React.FC<CategoryListItemProps> = ({ category, transactionCount, onSelect }) => {
+    return (
+        <li onClick={() => onSelect(category.id)} className="bg-gray-50 dark:bg-gray-700/50 p-3 rounded-lg flex justify-between items-center cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors group">
+            <div className="flex items-center gap-3 flex-grow">
+                <span className="text-2xl">{category.icon}</span>
+                <div className="flex-grow">
+                    <p className="font-semibold">{category.name}</p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                        {transactionCount} {transactionCount === 1 ? 'movimento' : 'movimentos'}
+                    </p>
+                </div>
+            </div>
+            <ChevronRightIcon className="w-5 h-5 text-gray-400 group-hover:text-blue-500 pl-2" />
+        </li>
+    );
+};
+
+
+// Componente para Gerir Categorias
+const CategoriesManager: React.FC = () => {
+    const { categories, transactions } = useAppContext();
+    const [isCategoryModalOpen, setIsCategoryModalOpen] = React.useState(false);
+    const [selectedCategoryId, setSelectedCategoryId] = React.useState<string | null>(null);
+
+    const transactionCounts = React.useMemo(() => {
+        const counts = new Map<string, number>();
+        transactions.forEach(t => {
+            if (t.categoryId) {
+                counts.set(t.categoryId, (counts.get(t.categoryId) || 0) + 1);
+            }
+        });
+        return counts;
+    }, [transactions]);
+
+
+    if (selectedCategoryId) {
+        return <CategoryDetail categoryId={selectedCategoryId} onBack={() => setSelectedCategoryId(null)} />;
+    }
+    
+    const expenseCategories = categories.filter(c => c.type === TransactionType.EXPENSE);
+    const incomeCategories = categories.filter(c => c.type === TransactionType.INCOME);
+
+    return (
+        <>
+            <div className="flex justify-between items-center mb-4">
+                <button onClick={() => setIsCategoryModalOpen(true)} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-semibold">Nova Categoria</button>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                    <h3 className="font-semibold mb-2">Despesas</h3>
+                    <ul className="space-y-2">
+                        {expenseCategories.map(c => (
+                            <CategoryListItem 
+                                key={c.id} 
+                                category={c} 
+                                transactionCount={transactionCounts.get(c.id) || 0}
+                                onSelect={setSelectedCategoryId} 
+                            />
+                        ))}
+                    </ul>
+                </div>
+                <div>
+                    <h3 className="font-semibold mb-2">Receitas</h3>
+                    <ul className="space-y-2">
+                        {incomeCategories.map(c => (
+                            <CategoryListItem 
+                                key={c.id} 
+                                category={c} 
+                                transactionCount={transactionCounts.get(c.id) || 0}
+                                onSelect={setSelectedCategoryId} 
+                            />
+                        ))}
+                    </ul>
+                </div>
+            </div>
+            <CategoryModal isOpen={isCategoryModalOpen} onClose={() => setIsCategoryModalOpen(false)} categoryToEdit={null} />
+        </>
+    );
+};
+
+
+interface AccountDetailProps {
+    accountId: string;
+    onBack: () => void;
+}
+
+const AccountDetail: React.FC<AccountDetailProps> = ({ accountId, onBack }) => {
+    const { accounts, transactions, categories, deleteAccount, accountDetails } = useAppContext();
+    const [isAccountModalOpen, setAccountModalOpen] = React.useState(false);
+    const [selectedTransaction, setSelectedTransaction] = React.useState<(Transaction & { runningBalance?: number }) | null>(null);
+
+    const account = React.useMemo(() => accounts.find(a => a.id === accountId), [accounts, accountId]);
+
+    const accountTransactions = React.useMemo(() => {
+        if (!account) return [];
+        return transactions
+            .filter(t => t.accountId === accountId || t.destinationAccountId === accountId)
+            .sort((a, b) => new Date(`${b.date}T${b.time || '00:00'}`).getTime() - new Date(`${a.date}T${a.time || '00:00'}`).getTime());
+    }, [transactions, accountId, account]);
+
+    const stats = React.useMemo(() => {
+        if (!account) return { currentBalance: 0, inflow: 0, outflow: 0, net: 0 };
+        
+        const details = accountDetails.get(accountId);
+        const currentBalance = details ? details.currentBalance : account.initialBalance;
+        
+        let inflow = 0;
+        let outflow = 0;
+        
+        transactions.forEach(t => {
+            if (t.accountId === accountId) {
+                if (t.type === TransactionType.INCOME) inflow += t.amount;
+                else outflow += t.amount; // Expense or Transfer out
+            } else if (t.type === TransactionType.TRANSFER && t.destinationAccountId === accountId) {
+                inflow += t.amount;
+            }
+        });
+        
+        return { currentBalance, inflow, outflow, net: inflow - outflow };
+
+    }, [account, accountDetails, accountId, transactions]);
+
+    const handleDelete = () => {
+        if (account) {
+            deleteAccount(account.id);
+        }
+    };
+    
+    React.useEffect(() => {
+        const accountExists = accounts.some(a => a.id === accountId);
+        if (!accountExists) {
+            onBack();
+        }
+    }, [accounts, accountId, onBack]);
+
+    if (!account) {
+        return null; 
+    }
+
+    return (
+        <div className="space-y-6">
+            <button onClick={onBack} className="flex items-center gap-2 text-sm font-semibold text-gray-600 dark:text-gray-300 hover:text-blue-500 dark:hover:text-blue-400 transition-colors">
+                <ArrowLeftIcon className="w-5 h-5" />
+                <span>Todas as Contas</span>
+            </button>
+
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                <div className="flex items-center gap-4">
+                    <span className="text-4xl">{account.icon}</span>
+                    <div>
+                        <h2 className="text-2xl font-bold">{account.name}</h2>
+                        <span className={`text-xs font-bold uppercase px-2 py-1 rounded ${account.isActive ? 'bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-300' : 'bg-gray-200 text-gray-800 dark:bg-gray-600 dark:text-gray-300'}`}>
+                            {account.isActive ? 'Ativa' : 'Inativa'}
+                        </span>
+                    </div>
+                </div>
+                <div className="flex gap-2 self-end sm:self-center">
+                    <button onClick={() => setAccountModalOpen(true)} className="flex items-center gap-2 px-3 py-2 text-sm bg-gray-200 dark:bg-gray-700 rounded-md hover:bg-gray-300 dark:hover:bg-gray-600"><PencilIcon className="w-4 h-4" /> Editar</button>
+                    <button onClick={handleDelete} className="flex items-center gap-2 px-3 py-2 text-sm bg-red-100 text-red-700 dark:bg-red-900/50 dark:text-red-300 rounded-md hover:bg-red-200 dark:hover:bg-red-800"><TrashIcon className="w-4 h-4" /> {account.isActive ? 'Inativar' : 'Reativar'}</button>
+                </div>
+            </div>
+
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                <StatCard title="Saldo Atual" value={stats.currentBalance.toLocaleString('pt-PT', { style: 'currency', currency: 'EUR' })} />
+                <StatCard title="Saldo Inicial" value={account.initialBalance.toLocaleString('pt-PT', { style: 'currency', currency: 'EUR' })} />
+                <StatCard title="Data de Registo" value={new Date(account.startDate).toLocaleDateString('pt-PT', { timeZone: 'UTC' })} />
+                <StatCard title="Total Entradas" value={stats.inflow.toLocaleString('pt-PT', { style: 'currency', currency: 'EUR' })} />
+                <StatCard title="Total Saídas" value={stats.outflow.toLocaleString('pt-PT', { style: 'currency', currency: 'EUR' })} />
+                <StatCard title="Movimento Líquido" value={stats.net.toLocaleString('pt-PT', { style: 'currency', currency: 'EUR' })} />
+            </div>
+
+            <div>
+                <h3 className="text-xl font-semibold mb-2">Histórico de Movimentos</h3>
+                <div className="bg-gray-50 dark:bg-gray-900/50 rounded-lg max-h-96 overflow-y-auto">
+                    {accountTransactions.length > 0 ? (
+                        <ul className="divide-y divide-gray-200 dark:divide-gray-700">
+                            {accountTransactions.map(t => {
+                                const isOut = (t.type === TransactionType.EXPENSE || (t.type === TransactionType.TRANSFER && t.accountId === accountId));
+                                const amountSign = isOut ? '-' : '+';
+                                const amountText = `${t.type === TransactionType.TRANSFER ? '' : amountSign} ${t.amount.toLocaleString('pt-PT', { style: 'currency', currency: 'EUR' })}`;
+
+                                let detailText = '';
+                                if (t.type === TransactionType.TRANSFER) {
+                                    if (isOut) {
+                                        const destAcc = accounts.find(a => a.id === t.destinationAccountId);
+                                        detailText = `Para: ${destAcc?.name || 'N/A'}`;
+                                    } else {
+                                        const sourceAcc = accounts.find(a => a.id === t.accountId);
+                                        detailText = `De: ${sourceAcc?.name || 'N/A'}`;
+                                    }
+                                } else {
+                                    const category = categories.find(c => c.id === t.categoryId);
+                                    detailText = category?.name || 'Sem Categoria';
+                                }
+
+                                return (
+                                    <li key={t.id} onClick={() => setSelectedTransaction(t)} className="p-3 flex justify-between items-center cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700">
+                                        <div>
+                                            <p className="font-semibold">{t.description}</p>
+                                            <p className="text-sm text-gray-500 dark:text-gray-400">{new Date(t.date).toLocaleDateString('pt-PT', { timeZone: 'UTC' })} &bull; {detailText}</p>
+                                        </div>
+                                        <p className={`font-bold ${isOut ? 'text-red-500' : 'text-green-500'}`}>{amountText}</p>
+                                    </li>
+                                );
+                            })}
+                        </ul>
+                    ) : (
+                        <p className="text-center text-gray-500 p-8">Nenhum movimento encontrado para esta conta.</p>
+                    )}
+                </div>
+            </div>
+
+            <AccountModal isOpen={isAccountModalOpen} onClose={() => setAccountModalOpen(false)} accountToEdit={account} />
+            <TransactionDetailModal transaction={selectedTransaction} onClose={() => setSelectedTransaction(null)} />
+        </div>
+    );
+};
+
+interface AccountListItemProps {
+  account: Account;
+  onSelect: (id: string) => void;
+}
+
+const AccountListItem: React.FC<AccountListItemProps> = ({ account, onSelect }) => {
+    const { accountDetails } = useAppContext();
+    const details = accountDetails.get(account.id);
+    const balance = details ? details.currentBalance : account.initialBalance;
+    const transactionCount = details ? details.transactionCount : 0;
+
+    return (
+        <li onClick={() => onSelect(account.id)} className="bg-gray-50 dark:bg-gray-700/50 p-3 rounded-lg flex justify-between items-center cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors group">
+            <div className="flex items-center gap-3 flex-grow">
+                <span className="text-2xl">{account.icon}</span>
+                <div className="flex-grow">
+                    <div className="flex justify-between items-center">
+                        <p className="font-semibold">{account.name}</p>
+                        <p className="font-semibold text-sm">{balance.toLocaleString('pt-PT', { style: 'currency', currency: 'EUR' })}</p>
+                    </div>
+                    <div className="flex justify-between items-center text-xs text-gray-500 dark:text-gray-400 mt-1">
+                        <span>{account.type}</span>
+                        <span>{transactionCount} {transactionCount === 1 ? 'movimento' : 'movimentos'}</span>
+                    </div>
+                </div>
+            </div>
+            <ChevronRightIcon className="w-5 h-5 text-gray-400 group-hover:text-blue-500 pl-2" />
+        </li>
+    );
+};
+
+
+// Componente para Gerir Contas
+const AccountsManager: React.FC = () => {
+    const { accounts } = useAppContext();
+    const [isAccountModalOpen, setAccountModalOpen] = React.useState(false);
+    const [selectedAccountId, setSelectedAccountId] = React.useState<string | null>(null);
+
+    if (selectedAccountId) {
+        return <AccountDetail accountId={selectedAccountId} onBack={() => setSelectedAccountId(null)} />;
+    }
+
+    const activeAccounts = accounts.filter(a => a.isActive);
+    const inactiveAccounts = accounts.filter(a => !a.isActive);
+
+    return (
+        <>
+            <div className="flex justify-between items-center mb-4">
+                <button onClick={() => setAccountModalOpen(true)} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-semibold">Nova Conta</button>
+            </div>
+            <div>
+                <h3 className="font-semibold mb-2">Contas Ativas</h3>
+                <ul className="space-y-2">
+                    {activeAccounts.map(acc => <AccountListItem key={acc.id} account={acc} onSelect={setSelectedAccountId} />)}
+                </ul>
+            </div>
+            {inactiveAccounts.length > 0 && (
+                <div className="mt-6">
+                    <h3 className="font-semibold mb-2">Contas Inativas</h3>
+                    <ul className="space-y-2">
+                        {inactiveAccounts.map(acc => <AccountListItem key={acc.id} account={acc} onSelect={setSelectedAccountId} />)}
+                    </ul>
+                </div>
+            )}
+            <AccountModal isOpen={isAccountModalOpen} onClose={() => setAccountModalOpen(false)} accountToEdit={null} />
+        </>
+    );
+};
+
+// Componente para Gerir Movimentos Recorrentes
+const RecurringManager: React.FC = () => {
+    const { recurringTransactions, deleteRecurringTransaction, transactions } = useAppContext();
+    const [isRecurringModalOpen, setRecurringModalOpen] = React.useState(false);
+    const [recurringToEdit, setRecurringToEdit] = React.useState<RecurringTransaction | null>(null);
+    const [generatedTransactions, setGeneratedTransactions] = React.useState<Transaction[] | null>(null);
+    const [selectedTransaction, setSelectedTransaction] = React.useState<(Transaction & { runningBalance: number }) | null>(null);
+
+    const openModal = (recurring: RecurringTransaction | null = null) => {
+        setRecurringToEdit(recurring);
+        setRecurringModalOpen(true);
+    };
+
+    const viewGenerated = (recurringId: string) => {
+        const generated = transactions.filter(t => t.recurringTransactionId === recurringId)
+            .sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+        setGeneratedTransactions(generated);
+    };
+    
+    const freqMap: Record<string, string> = { daily: 'Diária', weekly: 'Semanal', monthly: 'Mensal', yearly: 'Anual' };
+    const today = new Date();
+    today.setHours(0,0,0,0);
+
+    return (
+        <>
+            <div className="flex justify-between items-center mb-4">
+                <button onClick={() => openModal()} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-semibold">Novo Recorrente</button>
+            </div>
+            <ul className="space-y-3">
+                {recurringTransactions.map(r => {
+                    const nextDate = r.lastGeneratedDate ? getNextDate(new Date(r.lastGeneratedDate), r.frequency) : new Date(r.startDate);
+                    const endDate = r.endDate ? new Date(r.endDate) : null;
+                    const isFinished = endDate && today > endDate;
+                    return (
+                        <li key={r.id} className={`p-3 rounded-lg flex justify-between items-center ${!r.isActive || isFinished ? 'bg-gray-100 dark:bg-gray-800 opacity-60' : 'bg-gray-50 dark:bg-gray-700/50'}`}>
+                            <div>
+                                <p className="font-semibold">{r.description} ({r.amount.toLocaleString('pt-PT', { style: 'currency', currency: 'EUR' })})</p>
+                                <p className="text-sm text-gray-500 dark:text-gray-400">
+                                    {freqMap[r.frequency]}. Próximo: {isFinished ? 'Terminado' : nextDate.toLocaleDateString('pt-PT')}
+                                </p>
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <button onClick={() => viewGenerated(r.id)} className="p-2 text-gray-500 hover:text-green-500 rounded-full hover:bg-gray-200 dark:hover:bg-gray-600" title="Ver gerados"><EyeIcon className="w-5 h-5"/></button>
+                                <button onClick={() => openModal(r)} className="p-2 text-gray-500 hover:text-blue-500 rounded-full hover:bg-gray-200 dark:hover:bg-gray-600"><PencilIcon className="w-5 h-5" /></button>
+                                <button onClick={() => deleteRecurringTransaction(r.id)} className="p-2 text-gray-500 hover:text-red-500 rounded-full hover:bg-gray-200 dark:hover:bg-gray-600"><TrashIcon className="w-5 h-5" /></button>
+                            </div>
+                        </li>
+                    )
+                })}
+            </ul>
+             <RecurringTransactionModal isOpen={isRecurringModalOpen} onClose={() => setRecurringModalOpen(false)} recurringToEdit={recurringToEdit} />
+             {generatedTransactions && (
+                <div className="fixed inset-0 bg-black bg-opacity-50 z-[70] flex justify-center items-center p-4">
+                    <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl p-6 w-full max-w-lg">
+                        <h3 className="text-xl font-bold mb-4">Movimentos Gerados</h3>
+                        <ul className="space-y-2 max-h-80 overflow-y-auto">
+                            {generatedTransactions.map(t => (
+                                <li key={t.id} className="text-sm flex justify-between cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 p-2 rounded-md" onClick={() => setSelectedTransaction({ ...t, runningBalance: 0})}>
+                                    <span>{new Date(t.date).toLocaleDateString('pt-PT')} - {t.description}</span>
+                                    <span>{t.amount.toLocaleString('pt-PT', { style: 'currency', currency: 'EUR' })}</span>
+                                </li>
+                            ))}
+                        </ul>
+                        <div className="flex justify-end mt-4">
+                            <button onClick={() => setGeneratedTransactions(null)} className="px-4 py-2 bg-gray-200 dark:bg-gray-600 rounded-md">Fechar</button>
+                        </div>
+                    </div>
+                </div>
+            )}
+             <TransactionDetailModal transaction={selectedTransaction} onClose={() => setSelectedTransaction(null)} />
+        </>
+    );
+};
+
+// Componente para Análise com IA
+const AIAnalysis: React.FC = () => {
+    const { cycleTransactions, categories } = useAppContext();
+    const [analysis, setAnalysis] = React.useState<string>('');
+    const [isLoading, setIsLoading] = React.useState(false);
+    const [error, setError] = React.useState<string>('');
+
+    const handleAnalyze = async () => {
+        setIsLoading(true);
+        setError('');
+        setAnalysis('');
+        try {
+            const expenseTransactions = cycleTransactions.filter(t => t.type === TransactionType.EXPENSE);
+            if (expenseTransactions.length === 0) {
+                setError("Não existem despesas no ciclo atual para analisar.");
+                return;
+            }
+            const result = await analyzeExpenses(expenseTransactions, categories);
+            setAnalysis(result);
+        } catch (e) {
+            setError((e as Error).message);
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    return (
+        <div>
+            <p className="text-gray-600 dark:text-gray-400 mb-4">
+                Obtenha dicas personalizadas para otimizar as suas finanças com base nos seus gastos do ciclo atual.
+            </p>
+            <button onClick={handleAnalyze} disabled={isLoading} className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-400">
+                <SparklesIcon />
+                <span>{isLoading ? 'A analisar...' : 'Analisar Despesas'}</span>
+            </button>
+            {analysis && (
+                <div className="mt-4 p-4 bg-blue-50 dark:bg-blue-900/30 rounded-lg border border-blue-200 dark:border-blue-800 whitespace-pre-wrap font-sans">
+                    {analysis}
+                </div>
+            )}
+            {error && <p className="mt-4 text-red-500">{error}</p>}
+        </div>
+    );
+};
+
+// Componente para personalizar dashboard
+const DashboardCustomization: React.FC = () => {
+    const { chartSettings, updateChartSettings } = useAppContext();
+    
+    const toggleChart = (chart: keyof ChartSettings) => {
+        updateChartSettings({ ...chartSettings, [chart]: !chartSettings[chart] });
+    };
+
+    return (
+        <div>
+             <p className="text-gray-600 dark:text-gray-400 mb-4">
+                Escolha quais os gráficos que pretende ver no seu dashboard.
+            </p>
+            <div className="space-y-3">
+                <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+                    <label htmlFor="expensesByCategory">Despesas por Categoria</label>
+                    <input type="checkbox" id="expensesByCategory" checked={chartSettings.expensesByCategory} onChange={() => toggleChart('expensesByCategory')} className="h-5 w-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500" />
+                </div>
+                 <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+                    <label htmlFor="incomeByCategory">Receitas por Categoria</label>
+                    <input type="checkbox" id="incomeByCategory" checked={chartSettings.incomeByCategory} onChange={() => toggleChart('incomeByCategory')} className="h-5 w-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500" />
+                </div>
+                 <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+                    <label htmlFor="expenseEvolution">Evolução das Despesas</label>
+                    <input type="checkbox" id="expenseEvolution" checked={chartSettings.expenseEvolution} onChange={() => toggleChart('expenseEvolution')} className="h-5 w-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500" />
+                </div>
+                 <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+                    <label htmlFor="dailyMovements">Movimentos Diários</label>
+                    <input type="checkbox" id="dailyMovements" checked={chartSettings.dailyMovements} onChange={() => toggleChart('dailyMovements')} className="h-5 w-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500" />
                 </div>
             </div>
         </div>
     );
-}
-
-
-const SettingsView: React.FC = () => {
-  const { 
-    categories, deleteCategory, 
-    accounts, deleteAccount, 
-    transactions, cycleTransactions,
-    recurringTransactions, deleteRecurringTransaction, updateRecurringTransaction
-  } = useAppContext();
-  const [aiAnalysis, setAiAnalysis] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState('');
-  
-  const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
-  const [categoryToEdit, setCategoryToEdit] = useState<Category | null>(null);
-
-  const [isAccountModalOpen, setIsAccountModalOpen] = useState(false);
-  const [accountToEdit, setAccountToEdit] = useState<Account | null>(null);
-
-  const [isRecurringModalOpen, setIsRecurringModalOpen] = useState(false);
-  const [recurringToEdit, setRecurringToEdit] = useState<RecurringTransaction | null>(null);
-
-
-  const openCategoryModal = (category?: Category) => {
-    setCategoryToEdit(category || null);
-    setIsCategoryModalOpen(true);
-  };
-  const closeCategoryModal = () => {
-    setIsCategoryModalOpen(false);
-    setCategoryToEdit(null);
-  };
-
-  const openAccountModal = (account?: Account) => {
-    setAccountToEdit(account || null);
-    setIsAccountModalOpen(true);
-  };
-  const closeAccountModal = () => {
-    setIsAccountModalOpen(false);
-    setAccountToEdit(null);
-  };
-
-  const openRecurringModal = (recurring?: RecurringTransaction) => {
-    setRecurringToEdit(recurring || null);
-    setIsRecurringModalOpen(true);
-  };
-  const closeRecurringModal = () => {
-    setIsRecurringModalOpen(false);
-    setRecurringToEdit(null);
-  };
-
-  const handleToggleRecurring = (rule: RecurringTransaction) => {
-    updateRecurringTransaction({ ...rule, isActive: !rule.isActive });
-  }
-
-  const handleGetAnalysis = async () => {
-    setIsLoading(true);
-    setError('');
-    setAiAnalysis('');
-    try {
-      if (cycleTransactions.length < 3) {
-          setError("Adicione pelo menos 3 transações no ciclo atual para obter uma análise.");
-          return;
-      }
-      const result = await analyzeExpenses(cycleTransactions, categories);
-      setAiAnalysis(result);
-    } catch (e) {
-      setError('Ocorreu um erro ao obter a análise. Tente novamente.');
-      console.error(e);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-  
-  const frequencyMap: {[key: string]: string} = {
-    'daily': 'Diária',
-    'weekly': 'Semanal',
-    'monthly': 'Mensal',
-    'yearly': 'Anual',
-  }
-
-  return (
-    <>
-      <div className="space-y-8">
-        <h1 className="text-3xl font-bold">Configurações</h1>
-
-        <CycleSettingsComponent />
-
-        <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-md">
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-xl font-semibold">Movimentos Recorrentes</h2>
-              <button onClick={() => openRecurringModal()} className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 text-sm">
-                  Adicionar Regra
-              </button>
-            </div>
-            {recurringTransactions.length > 0 ? (
-                <ul className="space-y-3 max-h-72 overflow-y-auto pr-2">
-                {recurringTransactions.map(r => (
-                    <li key={r.id} className="p-3 bg-gray-50 dark:bg-gray-700 rounded-md">
-                        <div className="flex justify-between items-start">
-                             <div className="flex items-center gap-3">
-                                <div className={`w-3 h-3 rounded-full mt-1.5 ${r.isActive ? 'bg-green-500' : 'bg-gray-400'}`}></div>
-                                <div>
-                                    <p className="font-bold text-base">{r.description}</p>
-                                    <p className="text-sm text-gray-500 dark:text-gray-400">
-                                        {r.amount.toLocaleString('pt-PT', { style: 'currency', currency: 'EUR' })} - {frequencyMap[r.frequency]}
-                                    </p>
-                                </div>
-                            </div>
-                            <div className="flex items-center gap-2">
-                               <button onClick={() => openRecurringModal(r)} className="text-gray-400 hover:text-blue-500"><PencilIcon className="w-5 h-5" /></button>
-                               <button onClick={() => deleteRecurringTransaction(r.id)} className="text-gray-400 hover:text-red-500"><TrashIcon className="w-5 h-5" /></button>
-                            </div>
-                        </div>
-                    </li>
-                ))}
-                </ul>
-            ) : <p className="text-gray-500 dark:text-gray-400 text-sm">Nenhum movimento recorrente configurado.</p>}
-        </div>
-
-        <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-md">
-          <h2 className="text-xl font-semibold mb-4">Análise com IA</h2>
-          <p className="text-gray-600 dark:text-gray-400 mb-4">
-            Obtenha dicas sobre seus gastos no ciclo atual com o poder da IA do Gemini.
-          </p>
-          <button
-            onClick={handleGetAnalysis}
-            disabled={isLoading}
-            className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:bg-blue-400 disabled:cursor-not-allowed"
-          >
-            {isLoading ? 'Analisando...' : 'Analisar Despesas do Ciclo'}
-          </button>
-          {error && <p className="text-red-500 mt-4">{error}</p>}
-          {aiAnalysis && (
-            <div className="mt-6 p-4 bg-gray-100 dark:bg-gray-700 rounded-lg whitespace-pre-wrap font-mono text-sm">
-              {aiAnalysis}
-            </div>
-          )}
-        </div>
-
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-md">
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-xl font-semibold">Categorias</h2>
-              <button onClick={() => openCategoryModal()} className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 text-sm">
-                  Adicionar Categoria
-              </button>
-            </div>
-            
-            <ul className="space-y-2 max-h-60 overflow-y-auto">
-              {categories.map(c => {
-                  const transactionCount = transactions.filter(t => t.categoryId === c.id).length;
-                  return (
-                    <li key={c.id} className="flex justify-between items-center p-2 bg-gray-50 dark:bg-gray-700 rounded-md">
-                      <div className="flex items-center gap-3">
-                          <span style={{ backgroundColor: c.color }} className="w-8 h-8 rounded-full flex items-center justify-center text-xl shrink-0">{c.icon}</span>
-                          <div className="flex flex-col">
-                              <span>{c.name}</span>
-                              <span className={`text-xs font-medium px-2 py-0.5 rounded-full self-start ${c.type === TransactionType.INCOME ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300' : 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300'}`}>
-                                  {c.type === 'income' ? 'Receita' : 'Despesa'}
-                              </span>
-                          </div>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300 font-medium px-2 py-0.5 rounded-full">
-                          {transactionCount} {transactionCount === 1 ? 'mov.' : 'movs.'}
-                        </span>
-                        <button onClick={() => openCategoryModal(c)} className="text-gray-400 hover:text-blue-500"><PencilIcon className="w-5 h-5" /></button>
-                        <button onClick={() => deleteCategory(c.id)} className="text-gray-400 hover:text-red-500"><TrashIcon className="w-5 h-5" /></button>
-                      </div>
-                    </li>
-                  )
-              })}
-            </ul>
-          </div>
-
-          <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-md">
-            <div className="flex justify-between items-center mb-4">
-                  <h2 className="text-xl font-semibold">Contas</h2>
-                  <button onClick={() => openAccountModal()} className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 text-sm">
-                      Adicionar Conta
-                  </button>
-            </div>
-            <ul className="space-y-3 max-h-[280px] overflow-y-auto pr-2">
-              {accounts.map(a => {
-                  const currentBalance = transactions.reduce((balance, t) => {
-                    if (t.accountId === a.id) { // Source account
-                      if (t.type === TransactionType.INCOME) return balance + t.amount;
-                      if (t.type === TransactionType.EXPENSE || t.type === TransactionType.TRANSFER) return balance - t.amount;
-                    } else if (t.destinationAccountId === a.id && t.type === TransactionType.TRANSFER) { // Destination account
-                      return balance + t.amount;
-                    }
-                    return balance;
-                  }, a.initialBalance);
-                  
-                  const transactionCount = transactions.filter(t => t.accountId === a.id || t.destinationAccountId === a.id).length;
-                  const formattedStartDate = new Date(a.startDate).toLocaleDateString('pt-BR', { timeZone: 'UTC' });
-                  return (
-                      <li key={a.id} className="p-3 bg-gray-50 dark:bg-gray-700 rounded-md">
-                        <div className="flex justify-between items-start">
-                             <div className="flex items-center gap-3">
-                                <span className="text-2xl">{a.icon}</span>
-                                <div>
-                                    <p className="font-bold text-base">{a.name}</p>
-                                    <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-gray-200 text-gray-800 dark:bg-gray-600 dark:text-gray-200">
-                                      {a.type}
-                                    </span>
-                                </div>
-                            </div>
-                            <div className="flex items-center gap-2">
-                               <button onClick={() => openAccountModal(a)} className="text-gray-400 hover:text-blue-500"><PencilIcon className="w-5 h-5" /></button>
-                               <button onClick={() => deleteAccount(a.id)} className="text-gray-400 hover:text-red-500"><TrashIcon className="w-5 h-5" /></button>
-                            </div>
-                        </div>
-                        <div className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
-                            <div>
-                                <p className="text-gray-500 dark:text-gray-400">Saldo Inicial:</p>
-                                <p className="font-semibold">{a.initialBalance.toLocaleString('pt-PT', { style: 'currency', currency: 'EUR' })}</p>
-                            </div>
-                            <div>
-                                <p className="text-gray-500 dark:text-gray-400">Saldo Atual:</p>
-                                <p className={`font-semibold ${currentBalance >= 0 ? 'text-green-500' : 'text-red-500'}`}>{currentBalance.toLocaleString('pt-PT', { style: 'currency', currency: 'EUR' })}</p>
-                            </div>
-                            <div>
-                                <p className="text-gray-500 dark:text-gray-400">Data Início:</p>
-                                <p className="font-semibold">{formattedStartDate}</p>
-                            </div>
-                            <div>
-                                <p className="text-gray-500 dark:text-gray-400">Movimentos:</p>
-                                <p className="font-semibold">{transactionCount}</p>
-                            </div>
-                        </div>
-                      </li>
-                  )
-              })}
-            </ul>
-          </div>
-        </div>
-      </div>
-      <CategoryModal 
-        isOpen={isCategoryModalOpen} 
-        onClose={closeCategoryModal} 
-        categoryToEdit={categoryToEdit} 
-      />
-      <AccountModal
-        isOpen={isAccountModalOpen}
-        onClose={closeAccountModal}
-        accountToEdit={accountToEdit}
-      />
-      <RecurringTransactionModal
-        isOpen={isRecurringModalOpen}
-        onClose={closeRecurringModal}
-        recurringToEdit={recurringToEdit}
-       />
-    </>
-  );
 };
+
+// Componente para Gestão de Dados (Importar/Exportar)
+const DataManagement: React.FC = () => {
+    const { transactions, categories, accounts, cycleSettings, recurringTransactions, budgets, importData, chartSettings } = useAppContext();
+    const fileInputRef = React.useRef<HTMLInputElement>(null);
+
+    const handleExport = () => {
+        const dataToExport = {
+            transactions,
+            categories,
+            accounts,
+            cycleSettings,
+            recurringTransactions,
+            budgets,
+            chartSettings,
+        };
+        const dataStr = JSON.stringify(dataToExport, null, 2);
+        const blob = new Blob([dataStr], { type: "application/json" });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        const date = new Date().toISOString().split('T')[0];
+        link.download = `gestorapp_backup_${date}.json`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+    };
+
+    const handleImportClick = () => {
+        fileInputRef.current?.click();
+    };
+
+    const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+        const file = event.target.files?.[0];
+        if (!file) return;
+
+        if (!window.confirm("A importação irá substituir todos os dados atuais. Deseja continuar?")) {
+            if (fileInputRef.current) fileInputRef.current.value = "";
+            return;
+        }
+
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            try {
+                const text = e.target?.result as string;
+                const data = JSON.parse(text);
+                const { success, message } = importData(data);
+                alert(message);
+                if (success) {
+                    window.location.reload();
+                }
+            } catch (error) {
+                alert("Erro ao ler o ficheiro de backup. Certifique-se que o ficheiro é válido.");
+                console.error(error);
+            } finally {
+                if (fileInputRef.current) fileInputRef.current.value = "";
+            }
+        };
+        reader.readAsText(file);
+    };
+
+    return (
+        <div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <button onClick={handleExport} className="flex items-center justify-center gap-2 p-4 bg-gray-100 dark:bg-gray-700 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600">
+                    <DownloadIcon />
+                    <span>Exportar Backup</span>
+                </button>
+                <button onClick={handleImportClick} className="flex items-center justify-center gap-2 p-4 bg-gray-100 dark:bg-gray-700 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600">
+                    <UploadIcon />
+                    <span>Importar Backup</span>
+                </button>
+                <input type="file" accept=".json" ref={fileInputRef} onChange={handleFileChange} className="hidden" />
+            </div>
+        </div>
+    );
+};
+
+// Main Settings View
+const SettingsView: React.FC = () => {
+    type SettingsScreen = 'general' | 'categories' | 'accounts' | 'recurring' | 'dashboard' | 'data';
+    const [activeScreen, setActiveScreen] = React.useState<SettingsScreen | null>(null);
+
+    const navItems = [
+      { id: 'general' as SettingsScreen, label: 'Geral', icon: <SettingsIcon />, description: 'Defina o ciclo financeiro para a sua análise.' },
+      { id: 'categories' as SettingsScreen, label: 'Categorias', icon: <TagIcon />, description: 'Adicione, edite ou remova categorias de despesa e receita.' },
+      { id: 'accounts' as SettingsScreen, label: 'Contas', icon: <WalletIcon />, description: 'Gira as suas contas bancárias, cartões e carteiras.' },
+      { id: 'recurring' as SettingsScreen, label: 'Recorrentes', icon: <RefreshIcon />, description: 'Automatize o registo de movimentos frequentes.' },
+      { id: 'dashboard' as SettingsScreen, label: 'Dashboard', icon: <DashboardIcon />, description: 'Personalize os gráficos que aparecem no ecrã inicial.' },
+      { id: 'data' as SettingsScreen, label: 'Dados e IA', icon: <DatabaseIcon />, description: 'Faça backups e receba análises com IA.' },
+    ];
+    
+    const renderContent = () => {
+        switch (activeScreen) {
+            case 'general':
+                return <CycleSettingsComponent />;
+            case 'categories':
+                return <CategoriesManager />;
+            case 'accounts':
+                return <AccountsManager />;
+            case 'recurring':
+                return <RecurringManager />;
+            case 'dashboard':
+                return <DashboardCustomization />;
+            case 'data':
+                return (
+                    <div className="space-y-8">
+                        <AIAnalysis />
+                        <hr className="dark:border-gray-700 my-8"/>
+                        <DataManagement />
+                    </div>
+                );
+            default:
+                return null;
+        }
+    };
+    
+    if (activeScreen) {
+        const currentItem = navItems.find(item => item.id === activeScreen);
+        return (
+            <div className="space-y-6">
+                 <button onClick={() => setActiveScreen(null)} className="flex items-center gap-2 text-sm font-semibold text-gray-600 dark:text-gray-300 hover:text-blue-500 dark:hover:text-blue-400 transition-colors">
+                    <ArrowLeftIcon className="w-5 h-5" />
+                    <span>Voltar às Configurações</span>
+                </button>
+                <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-md">
+                   <h2 className="text-2xl font-bold mb-6">{currentItem?.label}</h2>
+                   {renderContent()}
+                </div>
+            </div>
+        );
+    }
+    
+    return (
+        <div className="space-y-8">
+            <h1 className="text-3xl font-bold">Configurações</h1>
+            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-md">
+                <div className="divide-y divide-gray-200 dark:divide-gray-700">
+                    {navItems.map(item => (
+                        <button
+                            key={item.id}
+                            onClick={() => setActiveScreen(item.id)}
+                            className="w-full text-left p-4 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors duration-200 group focus:outline-none focus:ring-2 focus:ring-inset focus:ring-blue-500"
+                        >
+                            <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-4">
+                                    <div className="bg-blue-100 dark:bg-blue-900/50 p-3 rounded-full text-blue-600 dark:text-blue-300">
+                                        {React.cloneElement(item.icon, { className: "w-6 h-6" })}
+                                    </div>
+                                    <div>
+                                        <h2 className="text-lg font-bold text-gray-800 dark:text-gray-100">{item.label}</h2>
+                                        <p className="text-sm text-gray-600 dark:text-gray-400">{item.description}</p>
+                                    </div>
+                                </div>
+                                <ChevronRightIcon className="w-6 h-6 text-gray-400 group-hover:text-blue-500 transition-colors" />
+                            </div>
+                        </button>
+                    ))}
+                </div>
+            </div>
+        </div>
+    );
+};
+
 
 export default SettingsView;

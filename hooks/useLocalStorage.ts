@@ -1,8 +1,9 @@
-import { useState, useEffect, Dispatch, SetStateAction } from 'react';
+
+import * as React from 'react';
 
 // FIX: Correctly type the return value of the hook using imported Dispatch and SetStateAction types to resolve React namespace errors.
-function useLocalStorage<T,>(key: string, initialValue: T): [T, Dispatch<SetStateAction<T>>] {
-  const [storedValue, setStoredValue] = useState<T>(() => {
+function useLocalStorage<T,>(key: string, initialValue: T): [T, React.Dispatch<React.SetStateAction<T>>] {
+  const [storedValue, setStoredValue] = React.useState<T>(() => {
     try {
       const item = window.localStorage.getItem(key);
       return item ? JSON.parse(item) : initialValue;
@@ -21,17 +22,6 @@ function useLocalStorage<T,>(key: string, initialValue: T): [T, Dispatch<SetStat
       console.error(error);
     }
   };
-  
-  useEffect(() => {
-    try {
-      const item = window.localStorage.getItem(key);
-      if (item) {
-        setStoredValue(JSON.parse(item));
-      }
-    } catch (error) {
-        console.error(error);
-    }
-  }, [key]);
 
   return [storedValue, setValue];
 }

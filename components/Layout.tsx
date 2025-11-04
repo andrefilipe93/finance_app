@@ -1,11 +1,12 @@
 
-import React, { ReactNode } from 'react';
-import { useAppContext } from '../context/AppContext';
-import { DashboardIcon, HistoryIcon, SettingsIcon, PlusIcon } from './icons';
+
+import * as React from 'react';
+import { HomeIcon, DashboardIcon, HistoryIcon, SettingsIcon, PlusIcon, TargetIcon, DocumentAddIcon, TrophyIcon } from './icons';
 import type { View } from '../types';
+import { useAppContext } from '../context/AppContext';
 
 interface LayoutProps {
-  children: ReactNode;
+  children: React.ReactNode;
   activeView: View;
   setActiveView: (view: View) => void;
 }
@@ -14,7 +15,7 @@ const NavItem: React.FC<{
   view: View;
   activeView: View;
   setActiveView: (view: View) => void;
-  icon: ReactNode;
+  icon: React.ReactNode;
   label: string;
 }> = ({ view, activeView, setActiveView, icon, label }) => {
   const isActive = activeView === view;
@@ -33,11 +34,15 @@ const NavItem: React.FC<{
 };
 
 const Layout: React.FC<LayoutProps> = ({ children, activeView, setActiveView }) => {
-  const { openModal } = useAppContext();
-
+  const { openAddTransactionModal } = useAppContext();
+  
   const navItems = [
-    { view: 'dashboard' as View, icon: <DashboardIcon />, label: 'Dashboard' },
+    { view: 'home' as View, icon: <HomeIcon />, label: 'Início' },
     { view: 'history' as View, icon: <HistoryIcon />, label: 'Histórico' },
+    { view: 'charts' as View, icon: <DashboardIcon />, label: 'Gráficos' },
+    { view: 'budgets' as View, icon: <TargetIcon />, label: 'Orçamentos' },
+    { view: 'budget-planning' as View, icon: <DocumentAddIcon />, label: 'Planeamento' },
+    { view: 'progress' as View, icon: <TrophyIcon />, label: 'Progresso' },
     { view: 'settings' as View, icon: <SettingsIcon />, label: 'Configurações' },
   ];
 
@@ -57,14 +62,25 @@ const Layout: React.FC<LayoutProps> = ({ children, activeView, setActiveView }) 
       </main>
 
       {/* Floating Action Button */}
-       <button
-        onClick={() => openModal()}
-        className="fixed z-50 bottom-24 right-6 md:bottom-8 md:right-8 bg-blue-600 text-white p-4 rounded-full shadow-lg hover:bg-blue-700 transition-transform transform hover:scale-110 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 dark:focus:ring-offset-gray-900"
-        aria-label="Adicionar transação"
-      >
-        <PlusIcon />
-      </button>
-
+      <div className="fixed md:hidden bottom-24 left-1/2 -translate-x-1/2 z-30">
+        <button
+          onClick={openAddTransactionModal}
+          className="bg-blue-600 hover:bg-blue-700 text-white rounded-full p-4 shadow-lg focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 dark:focus:ring-offset-gray-900 transition-transform transform hover:scale-110"
+          aria-label="Adicionar novo movimento"
+        >
+          <PlusIcon className="w-8 h-8" />
+        </button>
+      </div>
+       <div className="hidden md:block fixed bottom-8 right-8 z-30">
+        <button
+          onClick={openAddTransactionModal}
+          className="bg-blue-600 hover:bg-blue-700 text-white rounded-full p-4 shadow-lg focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 dark:focus:ring-offset-gray-900 transition-transform transform hover:scale-110"
+          aria-label="Adicionar novo movimento"
+        >
+          <PlusIcon className="w-8 h-8" />
+        </button>
+      </div>
+      
       {/* Bottom Nav (Mobile) */}
       <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-gray-100 dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 flex justify-around p-2 z-40">
         {navItems.map(item => (

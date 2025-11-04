@@ -1,5 +1,7 @@
 {
   "name": "Gestor de Despesas com IA",
   "description": "Uma aplicação web para gerir as suas despesas pessoais, com gráficos, histórico e análise inteligente fornecida pela API Gemini.",
-  "requestFramePermissions": []
+  "requestFramePermissions": [
+    "camera"
+  ]
 }

@@ -1,22 +1,22 @@
 
-
-import * as React from 'react';
+import React, { useMemo } from 'react';
 import { PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { useAppContext } from '../../context/AppContext';
 import { Transaction, TransactionType } from '../../types';
 
-interface CategoryPieChartProps {
+interface IncomeCategoryPieChartProps {
     transactions: Transaction[];
 }
 
-const CategoryPieChart: React.FC<CategoryPieChartProps> = ({ transactions }) => {
+const IncomeCategoryPieChart: React.FC<IncomeCategoryPieChartProps> = ({ transactions }) => {
   const { categories } = useAppContext();
 
-  const data = React.useMemo(() => {
+  const data = useMemo(() => {
     return categories
+      .filter(c => c.type === TransactionType.INCOME)
       .map(category => {
         const total = transactions
-          .filter(t => t.categoryId === category.id && t.type === TransactionType.EXPENSE)
+          .filter(t => t.categoryId === category.id && t.type === TransactionType.INCOME)
           .reduce((sum, t) => sum + t.amount, 0);
         return {
           name: category.name,
@@ -27,9 +27,8 @@ const CategoryPieChart: React.FC<CategoryPieChartProps> = ({ transactions }) => 
       .filter(item => item.value > 0);
   }, [categories, transactions]);
 
-
   if (data.length === 0) {
-      return <div className="flex items-center justify-center h-full text-gray-500">Nenhuma despesa para exibir.</div>
+      return <div className="flex items-center justify-center h-full text-gray-500">Nenhuma receita para exibir.</div>
   }
 
   return (
@@ -63,4 +62,4 @@ const CategoryPieChart: React.FC<CategoryPieChartProps> = ({ transactions }) => 
   );
 };
 
-export default CategoryPieChart;
+export default IncomeCategoryPieChart;

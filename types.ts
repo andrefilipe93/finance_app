@@ -1,3 +1,5 @@
+import { Achievement } from './achievements';
+
 export enum TransactionType {
   INCOME = 'income',
   EXPENSE = 'expense',
@@ -10,6 +12,7 @@ export interface Transaction {
   amount: number;
   type: TransactionType;
   date: string;
+  time: string;
   categoryId?: string;
   accountId: string;
   destinationAccountId?: string;
@@ -32,6 +35,7 @@ export interface Account {
   type: string;
   startDate: string;
   icon: string;
+  isActive: boolean;
 }
 
 export type MonthlyStartType = 'fixed' | 'first_weekday' | 'last_weekday';
@@ -57,5 +61,32 @@ export interface RecurringTransaction {
     lastGeneratedDate?: string;
 }
 
+export interface ChartSettings {
+  expensesByCategory: boolean;
+  incomeByCategory: boolean;
+  expenseEvolution: boolean;
+  dailyMovements: boolean;
+}
 
-export type View = 'dashboard' | 'history' | 'settings';
+export interface Budget {
+  id: string;
+  categoryId: string;
+  amount: number;
+  cycle: string; // "YYYY-MM" format
+}
+
+export interface OverallBudget {
+    cycle: string; // "YYYY-MM" format
+    amount: number;
+}
+
+export interface PlayerProfile {
+  level: number;
+  xp: number;
+  unlockedAchievements: string[];
+}
+
+export type AchievementNotification = Omit<Achievement, 'description'> | null;
+
+
+export type View = 'home' | 'charts' | 'history' | 'settings' | 'budgets' | 'budget-planning' | 'progress';
