@@ -1,10 +1,15 @@
 
+
 import React, { useMemo } from 'react';
 import { useAppContext } from '../../context/AppContext';
 import { TransactionType } from '../../types';
 
 const AccountsSummary: React.FC = () => {
     const { accounts, transactions } = useAppContext();
+
+    const formatCurrency = (value: number) => {
+        return value.toLocaleString('pt-PT', { style: 'currency', currency: 'EUR' });
+    };
 
     const accountBalances = useMemo(() => {
         return accounts
@@ -41,7 +46,7 @@ const AccountsSummary: React.FC = () => {
                                     <p className="font-semibold">{account.name}</p>
                                 </div>
                                 <p className="font-semibold text-gray-800 dark:text-gray-200">
-                                    {account.currentBalance.toLocaleString('pt-PT', { style: 'currency', currency: 'EUR' })}
+                                    {formatCurrency(account.currentBalance)}
                                 </p>
                             </li>
                         ))}

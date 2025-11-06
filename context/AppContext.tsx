@@ -42,6 +42,7 @@ interface AppContextType {
   closeAddTransactionModal: () => void;
   transactionToEditInFlow: Transaction | null;
   openAddTransactionModalForEdit: (transaction: Transaction) => void;
+  openTransactionModalForDuplication: (transaction: Transaction) => void;
   
   // Budgets
   budgets: Budget[];
@@ -189,7 +190,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   // Gamification State
   const [playerProfile, setPlayerProfile] = useLocalStorage<PlayerProfile>('playerProfile', { level: 1, xp: 0, unlockedAchievements: [] });
   const [achievementNotification, setAchievementNotification] = React.useState<AchievementNotification>(null);
-
 
   React.useEffect(() => {
     const isFirstRun = !window.localStorage.getItem('transactions');
@@ -492,6 +492,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setIsAddTransactionModalOpen(true);
   }, []);
 
+  const openTransactionModalForDuplication = React.useCallback((transaction: Transaction) => {
+    const duplicatedData = {
+        ...transaction,
+        id: '', // Signal that this is a new transaction, not an edit
+        createdAt: 0,
+        date: new Date().toISOString().split('T')[0],
+        time: new Date().toTimeString().slice(0, 5),
+    };
+    setTransactionToEditInFlow(duplicatedData as Transaction);
+    setIsAddTransactionModalOpen(true);
+  }, []);
+
   const closeAddTransactionModal = React.useCallback(() => {
     setIsAddTransactionModalOpen(false);
     setTransactionToEditInFlow(null);
@@ -610,6 +622,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     closeAddTransactionModal,
     transactionToEditInFlow,
     openAddTransactionModalForEdit,
+    openTransactionModalForDuplication,
     budgets,
     addBudget,
     updateBudget,
@@ -637,6 +650,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     cycleSettings, updateCycleSettings, currentCycle, importData,
     chartSettings, updateChartSettings, isAddTransactionModalOpen, openAddTransactionModal,
     closeAddTransactionModal, transactionToEditInFlow, openAddTransactionModalForEdit,
+    openTransactionModalForDuplication,
     budgets, addBudget, updateBudget, deleteBudget, isBudgetModalOpen, openBudgetModal,
     closeBudgetModal, budgetToEdit, budgetCreationCycle, overallBudgets, saveOverallBudget,
     deleteOverallBudget, categoryAverages, playerProfile, xpForNextLevel, 

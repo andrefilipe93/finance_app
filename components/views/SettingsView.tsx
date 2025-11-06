@@ -14,6 +14,10 @@ import TransactionDetailModal from '../TransactionDetailModal';
 // recreated on every render.
 // =================================================================================================
 
+const formatCurrency = (value: number) => {
+    return value.toLocaleString('pt-PT', { style: 'currency', currency: 'EUR' });
+};
+
 const getNextDate = (current: Date, frequency: RecurringTransaction['frequency']): Date => {
     const next = new Date(current);
     next.setHours(12, 0, 0, 0); // Avoid timezone issues
@@ -653,10 +657,10 @@ const CategoryDetail: React.FC<CategoryDetailProps> = ({ categoryId, onBack }) =
             </div>
 
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <StatCard title={totalTitle} value={stats.totalAmount.toLocaleString('pt-PT', { style: 'currency', currency: 'EUR' })} />
+                <StatCard title={totalTitle} value={formatCurrency(stats.totalAmount)} />
                 <StatCard title="Nº de Movimentos" value={stats.transactionCount.toString()} />
-                <StatCard title="Valor Médio" value={stats.averageValue.toLocaleString('pt-PT', { style: 'currency', currency: 'EUR' })} />
-                <StatCard title="Média Mensal (6m)" value={stats.monthlyAverage.toLocaleString('pt-PT', { style: 'currency', currency: 'EUR' })} />
+                <StatCard title="Valor Médio" value={formatCurrency(stats.averageValue)} />
+                <StatCard title="Média Mensal (6m)" value={formatCurrency(stats.monthlyAverage)} />
             </div>
 
             <div>
@@ -671,7 +675,7 @@ const CategoryDetail: React.FC<CategoryDetailProps> = ({ categoryId, onBack }) =
                                         <p className="text-sm text-gray-500 dark:text-gray-400">{new Date(t.date).toLocaleDateString('pt-PT', { timeZone: 'UTC' })}</p>
                                     </div>
                                     <p className={`font-bold ${t.type === TransactionType.EXPENSE ? 'text-red-500' : 'text-green-500'}`}>
-                                        {t.type === TransactionType.INCOME ? '+' : '-'}{t.amount.toLocaleString('pt-PT', { style: 'currency', currency: 'EUR' })}
+                                        {t.type === TransactionType.INCOME ? '+' : '-'}{formatCurrency(t.amount)}
                                     </p>
                                 </li>
                             ))}
@@ -857,12 +861,12 @@ const AccountDetail: React.FC<AccountDetailProps> = ({ accountId, onBack }) => {
             </div>
 
             <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                <StatCard title="Saldo Atual" value={stats.currentBalance.toLocaleString('pt-PT', { style: 'currency', currency: 'EUR' })} />
-                <StatCard title="Saldo Inicial" value={account.initialBalance.toLocaleString('pt-PT', { style: 'currency', currency: 'EUR' })} />
+                <StatCard title="Saldo Atual" value={formatCurrency(stats.currentBalance)} />
+                <StatCard title="Saldo Inicial" value={formatCurrency(account.initialBalance)} />
                 <StatCard title="Data de Registo" value={new Date(account.startDate).toLocaleDateString('pt-PT', { timeZone: 'UTC' })} />
-                <StatCard title="Total Entradas" value={stats.inflow.toLocaleString('pt-PT', { style: 'currency', currency: 'EUR' })} />
-                <StatCard title="Total Saídas" value={stats.outflow.toLocaleString('pt-PT', { style: 'currency', currency: 'EUR' })} />
-                <StatCard title="Movimento Líquido" value={stats.net.toLocaleString('pt-PT', { style: 'currency', currency: 'EUR' })} />
+                <StatCard title="Total Entradas" value={formatCurrency(stats.inflow)} />
+                <StatCard title="Total Saídas" value={formatCurrency(stats.outflow)} />
+                <StatCard title="Movimento Líquido" value={formatCurrency(stats.net)} />
             </div>
 
             <div>
@@ -873,7 +877,7 @@ const AccountDetail: React.FC<AccountDetailProps> = ({ accountId, onBack }) => {
                             {accountTransactions.map(t => {
                                 const isOut = (t.type === TransactionType.EXPENSE || (t.type === TransactionType.TRANSFER && t.accountId === accountId));
                                 const amountSign = isOut ? '-' : '+';
-                                const amountText = `${t.type === TransactionType.TRANSFER ? '' : amountSign} ${t.amount.toLocaleString('pt-PT', { style: 'currency', currency: 'EUR' })}`;
+                                const amountText = `${t.type === TransactionType.TRANSFER ? '' : amountSign} ${formatCurrency(t.amount)}`;
 
                                 let detailText = '';
                                 if (t.type === TransactionType.TRANSFER) {
@@ -930,7 +934,7 @@ const AccountListItem: React.FC<AccountListItemProps> = ({ account, onSelect }) 
                 <div className="flex-grow">
                     <div className="flex justify-between items-center">
                         <p className="font-semibold">{account.name}</p>
-                        <p className="font-semibold text-sm">{balance.toLocaleString('pt-PT', { style: 'currency', currency: 'EUR' })}</p>
+                        <p className="font-semibold text-sm">{formatCurrency(balance)}</p>
                     </div>
                     <div className="flex justify-between items-center text-xs text-gray-500 dark:text-gray-400 mt-1">
                         <span>{account.type}</span>
@@ -1017,7 +1021,7 @@ const RecurringManager: React.FC = () => {
                     return (
                         <li key={r.id} className={`p-3 rounded-lg flex justify-between items-center ${!r.isActive || isFinished ? 'bg-gray-100 dark:bg-gray-800 opacity-60' : 'bg-gray-50 dark:bg-gray-700/50'}`}>
                             <div>
-                                <p className="font-semibold">{r.description} ({r.amount.toLocaleString('pt-PT', { style: 'currency', currency: 'EUR' })})</p>
+                                <p className="font-semibold">{r.description} ({formatCurrency(r.amount)})</p>
                                 <p className="text-sm text-gray-500 dark:text-gray-400">
                                     {freqMap[r.frequency]}. Próximo: {isFinished ? 'Terminado' : nextDate.toLocaleDateString('pt-PT')}
                                 </p>
@@ -1040,7 +1044,7 @@ const RecurringManager: React.FC = () => {
                             {generatedTransactions.map(t => (
                                 <li key={t.id} className="text-sm flex justify-between cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 p-2 rounded-md" onClick={() => setSelectedTransaction({ ...t, runningBalance: 0})}>
                                     <span>{new Date(t.date).toLocaleDateString('pt-PT')} - {t.description}</span>
-                                    <span>{t.amount.toLocaleString('pt-PT', { style: 'currency', currency: 'EUR' })}</span>
+                                    <span>{formatCurrency(t.amount)}</span>
                                 </li>
                             ))}
                         </ul>
@@ -1213,9 +1217,98 @@ const DataManagement: React.FC = () => {
     );
 };
 
+const AppearanceSettings: React.FC = () => {
+    const [theme, setTheme] = React.useState<'light' | 'dark' | 'system'>(() => {
+        return (localStorage.getItem('theme') as 'light' | 'dark' | 'system') || 'system';
+    });
+
+    const applyTheme = (selectedTheme: 'light' | 'dark' | 'system') => {
+        localStorage.setItem('theme', selectedTheme);
+        setTheme(selectedTheme);
+
+        if (selectedTheme === 'dark') {
+            document.documentElement.classList.add('dark');
+        } else if (selectedTheme === 'light') {
+            document.documentElement.classList.remove('dark');
+        } else { // system
+            if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
+                document.documentElement.classList.add('dark');
+            } else {
+                document.documentElement.classList.remove('dark');
+            }
+        }
+    };
+
+    return (
+        <div className="space-y-4">
+            <p className="text-gray-600 dark:text-gray-400 mb-6">
+                Escolha como a aplicação deve ser apresentada. A opção "Sistema" irá seguir a configuração do seu dispositivo.
+            </p>
+            <div className="flex flex-col sm:flex-row gap-4">
+                <button
+                    onClick={() => applyTheme('light')}
+                    className={`flex-1 p-4 rounded-lg border-2 transition-colors text-left ${theme === 'light' ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/30' : 'border-gray-300 dark:border-gray-600 hover:border-blue-400'}`}
+                >
+                    <div className="font-bold">☀️ Claro</div>
+                    <p className="text-sm mt-2 text-gray-600 dark:text-gray-400">Um tema claro e tradicional.</p>
+                </button>
+                <button
+                    onClick={() => applyTheme('dark')}
+                    className={`flex-1 p-4 rounded-lg border-2 transition-colors text-left ${theme === 'dark' ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/30' : 'border-gray-300 dark:border-gray-600 hover:border-blue-400'}`}
+                >
+                    <div className="font-bold">🌙 Escuro</div>
+                    <p className="text-sm mt-2 text-gray-600 dark:text-gray-400">Um tema escuro para conforto visual.</p>
+                </button>
+                <button
+                    onClick={() => applyTheme('system')}
+                    className={`flex-1 p-4 rounded-lg border-2 transition-colors text-left ${theme === 'system' ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/30' : 'border-gray-300 dark:border-gray-600 hover:border-blue-400'}`}
+                >
+                    <div className="font-bold">🖥️ Sistema</div>
+                    <p className="text-sm mt-2 text-gray-600 dark:text-gray-400">Ajusta-se automaticamente.</p>
+                </button>
+            </div>
+        </div>
+    );
+};
+
+const PrivacySettings: React.FC = () => {
+    const [hideOnStartup, setHideOnStartup] = React.useState(() => {
+        return localStorage.getItem('hideValuesOnStartup') === 'true';
+    });
+
+    const handleToggle = () => {
+        const newValue = !hideOnStartup;
+        setHideOnStartup(newValue);
+        localStorage.setItem('hideValuesOnStartup', String(newValue));
+    };
+
+
+    return (
+        <div className="space-y-4">
+            <p className="text-gray-600 dark:text-gray-400">
+                Ative esta opção para que os valores no cartão principal da página inicial apareçam ocultos por defeito ao abrir a aplicação.
+            </p>
+            <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+                <label htmlFor="value-masking-toggle" className="font-medium text-gray-800 dark:text-gray-200">
+                    Ocultar valores por defeito na página inicial
+                </label>
+                <div 
+                    onClick={handleToggle} 
+                    className={`relative inline-flex items-center h-6 rounded-full w-11 cursor-pointer transition-colors ${hideOnStartup ? 'bg-blue-600' : 'bg-gray-300 dark:bg-gray-600'}`}
+                >
+                    <span
+                        className={`inline-block w-4 h-4 transform bg-white rounded-full transition-transform ${hideOnStartup ? 'translate-x-6' : 'translate-x-1'}`}
+                    />
+                </div>
+                 <input type="checkbox" id="value-masking-toggle" checked={hideOnStartup} onChange={handleToggle} className="sr-only" />
+            </div>
+        </div>
+    );
+};
+
 // Main Settings View
 const SettingsView: React.FC = () => {
-    type SettingsScreen = 'general' | 'categories' | 'accounts' | 'recurring' | 'dashboard' | 'data';
+    type SettingsScreen = 'general' | 'categories' | 'accounts' | 'recurring' | 'dashboard' | 'data' | 'appearance' | 'privacy';
     const [activeScreen, setActiveScreen] = React.useState<SettingsScreen | null>(null);
 
     const navItems = [
@@ -1224,6 +1317,8 @@ const SettingsView: React.FC = () => {
       { id: 'accounts' as SettingsScreen, label: 'Contas', icon: <WalletIcon />, description: 'Gira as suas contas bancárias, cartões e carteiras.' },
       { id: 'recurring' as SettingsScreen, label: 'Recorrentes', icon: <RefreshIcon />, description: 'Automatize o registo de movimentos frequentes.' },
       { id: 'dashboard' as SettingsScreen, label: 'Dashboard', icon: <DashboardIcon />, description: 'Personalize os gráficos que aparecem no ecrã inicial.' },
+      { id: 'appearance' as SettingsScreen, label: 'Aparência', icon: <EyeIcon />, description: 'Personalize o tema da aplicação.' },
+      { id: 'privacy' as SettingsScreen, label: 'Privacidade', icon: <EyeOffIcon />, description: 'Controle a visibilidade dos seus dados financeiros.' },
       { id: 'data' as SettingsScreen, label: 'Dados e IA', icon: <DatabaseIcon />, description: 'Faça backups e receba análises com IA.' },
     ];
     
@@ -1239,6 +1334,10 @@ const SettingsView: React.FC = () => {
                 return <RecurringManager />;
             case 'dashboard':
                 return <DashboardCustomization />;
+            case 'appearance':
+                return <AppearanceSettings />;
+            case 'privacy':
+                return <PrivacySettings />;
             case 'data':
                 return (
                     <div className="space-y-8">

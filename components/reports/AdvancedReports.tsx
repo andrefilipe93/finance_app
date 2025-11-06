@@ -5,6 +5,13 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 
 const formatDateForInput = (date: Date) => date.toISOString().split('T')[0];
 
+const formatCurrency = (value: number | undefined | null) => {
+    if (typeof value !== 'number') {
+        return (0).toLocaleString('pt-PT', { style: 'currency', currency: 'EUR' });
+    }
+    return value.toLocaleString('pt-PT', { style: 'currency', currency: 'EUR' });
+};
+
 const StatCard: React.FC<{ title: string; value: string | number; }> = ({ title, value }) => (
   <div className="bg-gray-100 dark:bg-gray-900/50 p-4 rounded-lg text-center">
     <h4 className="text-sm text-gray-500 dark:text-gray-400 font-medium">{title}</h4>
@@ -165,9 +172,9 @@ const AdvancedReports: React.FC = () => {
             {filteredTransactions !== null && (
                 <div className="space-y-6">
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                        <StatCard title="Total Receitas" value={summary?.income.toLocaleString('pt-PT', { style: 'currency', currency: 'EUR' }) ?? '€0,00'} />
-                        <StatCard title="Total Despesas" value={summary?.expense.toLocaleString('pt-PT', { style: 'currency', currency: 'EUR' }) ?? '€0,00'} />
-                        <StatCard title="Saldo do Período" value={( (summary?.income ?? 0) - (summary?.expense ?? 0) ).toLocaleString('pt-PT', { style: 'currency', currency: 'EUR' })} />
+                        <StatCard title="Total Receitas" value={formatCurrency(summary?.income)} />
+                        <StatCard title="Total Despesas" value={formatCurrency(summary?.expense)} />
+                        <StatCard title="Saldo do Período" value={formatCurrency((summary?.income ?? 0) - (summary?.expense ?? 0))} />
                         <StatCard title="Nº de Movimentos" value={filteredTransactions.length} />
                     </div>
 
@@ -199,7 +206,7 @@ const AdvancedReports: React.FC = () => {
                                         <p className="font-semibold">{t.description}</p>
                                         <p className="text-sm text-gray-500">{new Date(t.date).toLocaleDateString('pt-PT', { timeZone: 'UTC' })} &bull; {category?.name || 'Transferência'}</p>
                                     </div>
-                                    <p className={`font-bold ${t.type === 'expense' ? 'text-red-500' : 'text-green-500'}`}>{t.amount.toLocaleString('pt-PT', { style: 'currency', currency: 'EUR' })}</p>
+                                    <p className={`font-bold ${t.type === 'expense' ? 'text-red-500' : 'text-green-500'}`}>{formatCurrency(t.amount)}</p>
                                 </li>
                                 )
                             })}

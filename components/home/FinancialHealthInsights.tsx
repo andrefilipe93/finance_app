@@ -21,6 +21,10 @@ const InsightCard: React.FC<InsightCardProps> = ({ emoji, title, description }) 
 
 const FinancialHealthInsights: React.FC = () => {
     const { transactions, cycleTransactions, categories } = useAppContext();
+    
+    const formatCurrency = (value: number) => {
+        return value.toLocaleString('pt-PT', { style: 'currency', currency: 'EUR' });
+    };
 
     const { comparisonInsight, topCategoryInsight, hasCurrentExpenses } = useMemo(() => {
         // --- Insight 1: Comparação com a média ---
@@ -50,7 +54,7 @@ const FinancialHealthInsights: React.FC = () => {
             if (currentCycleSpend > 0) {
                 const difference = currentCycleSpend - averageSpend;
                 const isAbove = difference > 0;
-                const diffText = Math.abs(difference).toLocaleString('pt-PT', { style: 'currency', currency: 'EUR' });
+                const diffText = formatCurrency(Math.abs(difference));
 
                 comparisonInsight = {
                     emoji: isAbove ? '📈' : '📉',
@@ -86,7 +90,7 @@ const FinancialHealthInsights: React.FC = () => {
                     title: 'Foco de Despesa Principal',
                     description: (
                         <p>
-                            A sua maior despesa este mês tem sido em <strong>{topCategory.name}</strong>, totalizando <strong>{topCategoryAmount.toLocaleString('pt-PT', { style: 'currency', currency: 'EUR' })}</strong>.
+                            A sua maior despesa este mês tem sido em <strong>{topCategory.name}</strong>, totalizando <strong>{formatCurrency(topCategoryAmount)}</strong>.
                         </p>
                     )
                 };
@@ -95,7 +99,7 @@ const FinancialHealthInsights: React.FC = () => {
 
         return { comparisonInsight, topCategoryInsight, hasCurrentExpenses: currentCycleExpenses.length > 0 };
 
-    }, [transactions, cycleTransactions, categories]);
+    }, [transactions, cycleTransactions, categories, formatCurrency]);
 
     const insightsToShow = [comparisonInsight, topCategoryInsight].filter(Boolean);
 

@@ -1,4 +1,5 @@
 
+
 import React, { useMemo } from 'react';
 import { useAppContext } from '../../context/AppContext';
 import { TransactionType, View } from '../../types';
@@ -27,6 +28,10 @@ const formatRelativeDate = (dateString: string): string => {
 
 const RecentTransactions: React.FC<RecentTransactionsProps> = ({ setActiveView }) => {
   const { transactions, categories } = useAppContext();
+
+  const formatCurrency = (value: number) => {
+    return value.toLocaleString('pt-PT', { style: 'currency', currency: 'EUR' });
+  };
 
   const recentTransactions = useMemo(() => {
     const now = new Date();
@@ -68,7 +73,7 @@ const RecentTransactions: React.FC<RecentTransactionsProps> = ({ setActiveView }
                                     </div>
                                 </div>
                                 <p className={`font-semibold ${isExpense ? 'text-red-500' : isTransfer ? 'text-gray-700 dark:text-gray-200' : 'text-green-500'}`}>
-                                    {isExpense ? '-' : isTransfer ? '' : '+'}{(t.amount).toLocaleString('pt-PT', { style: 'currency', currency: 'EUR' })}
+                                    {isExpense ? '-' : isTransfer ? '' : '+'}{formatCurrency(t.amount)}
                                 </p>
                             </li>
                         );

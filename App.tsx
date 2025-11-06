@@ -19,6 +19,29 @@ import type { View } from './types';
 const App: React.FC = () => {
   const [activeView, setActiveView] = React.useState<View>('home');
 
+  React.useEffect(() => {
+    const theme = localStorage.getItem('theme') || 'system';
+    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+
+    const applyTheme = () => {
+        const storedTheme = localStorage.getItem('theme') || 'system';
+        if (storedTheme === 'dark' || (storedTheme === 'system' && mediaQuery.matches)) {
+            document.documentElement.classList.add('dark');
+        } else {
+            document.documentElement.classList.remove('dark');
+        }
+    };
+    
+    applyTheme(); // Apply on initial load
+
+    const handleChange = () => {
+        applyTheme();
+    };
+
+    mediaQuery.addEventListener('change', handleChange);
+    return () => mediaQuery.removeEventListener('change', handleChange);
+  }, []);
+
   return (
     <AppProvider>
       <Layout activeView={activeView} setActiveView={setActiveView}>

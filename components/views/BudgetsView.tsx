@@ -8,6 +8,10 @@ interface BudgetProgressCardProps {
   transactionsForPeriod: Transaction[];
 }
 
+const formatCurrency = (value: number) => {
+    return value.toLocaleString('pt-PT', { style: 'currency', currency: 'EUR' });
+};
+
 const BudgetProgressCard: React.FC<BudgetProgressCardProps> = ({ budget, transactionsForPeriod }) => {
     const { categories, openBudgetModal } = useAppContext();
     
@@ -38,7 +42,7 @@ const BudgetProgressCard: React.FC<BudgetProgressCardProps> = ({ budget, transac
                     <div>
                         <h3 className="font-bold text-lg">{category.name}</h3>
                         <p className="text-sm text-gray-500 dark:text-gray-400">
-                           Orçamento: {budget.amount.toLocaleString('pt-PT', { style: 'currency', currency: 'EUR' })}
+                           Orçamento: {formatCurrency(budget.amount)}
                         </p>
                     </div>
                 </div>
@@ -53,7 +57,7 @@ const BudgetProgressCard: React.FC<BudgetProgressCardProps> = ({ budget, transac
             
             <div>
                 <div className="flex justify-between text-sm mb-1 font-medium text-gray-600 dark:text-gray-300">
-                    <span>Gasto: {spentAmount.toLocaleString('pt-PT', { style: 'currency', currency: 'EUR' })}</span>
+                    <span>Gasto: {formatCurrency(spentAmount)}</span>
                     <span>{progress.toFixed(0)}%</span>
                 </div>
                 <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-3">
@@ -65,11 +69,11 @@ const BudgetProgressCard: React.FC<BudgetProgressCardProps> = ({ budget, transac
                  <div className="text-right text-sm mt-1">
                     {isOverBudget ? (
                         <p className="font-semibold text-red-500">
-                            {Math.abs(remainingAmount).toLocaleString('pt-PT', { style: 'currency', currency: 'EUR' })} acima
+                            {formatCurrency(Math.abs(remainingAmount))} acima
                         </p>
                     ) : (
                          <p className="text-gray-500 dark:text-gray-400">
-                            Resta: {remainingAmount.toLocaleString('pt-PT', { style: 'currency', currency: 'EUR' })}
+                            Resta: {formatCurrency(remainingAmount)}
                         </p>
                     )}
                 </div>

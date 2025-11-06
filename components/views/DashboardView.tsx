@@ -82,6 +82,10 @@ const getCycleDates = (dateInCycle: Date, settings: CycleSettings): { start: Dat
     return { start: startDate, end: endDate };
 };
 
+const formatCurrency = (value: number) => {
+    return value.toLocaleString('pt-PT', { style: 'currency', currency: 'EUR' });
+};
+
 const StatCard: React.FC<{ title: string; value: string; color: string }> = ({ title, value, color }) => (
   <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-md flex flex-col justify-between">
     <h3 className="text-lg text-gray-500 dark:text-gray-400">{title}</h3>
@@ -232,9 +236,9 @@ const CycleDashboard: React.FC = () => {
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
-        <StatCard title="Saldo Total" value={(totalBalance ?? 0).toLocaleString('pt-PT', { style: 'currency', currency: 'EUR' })} color={totalBalance >= 0 ? 'text-blue-500' : 'text-red-500'} />
-        <StatCard title="Receitas no Período" value={(cycleIncome ?? 0).toLocaleString('pt-PT', { style: 'currency', currency: 'EUR' })} color="text-green-500" />
-        <StatCard title="Despesas no Período" value={(cycleExpense ?? 0).toLocaleString('pt-PT', { style: 'currency', currency: 'EUR' })} color="text-red-500" />
+        <StatCard title="Saldo Total" value={formatCurrency(totalBalance)} color={totalBalance >= 0 ? 'text-blue-500' : 'text-red-500'} />
+        <StatCard title="Receitas no Período" value={formatCurrency(cycleIncome)} color="text-green-500" />
+        <StatCard title="Despesas no Período" value={formatCurrency(cycleExpense)} color="text-red-500" />
         <StatCard title="Movimentos no Período" value={filteredTransactions.length.toString()} color="text-gray-600 dark:text-gray-300" />
       </div>
       

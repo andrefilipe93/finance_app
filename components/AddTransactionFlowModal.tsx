@@ -1,51 +1,7 @@
+
 import React, { useState, useMemo, useEffect } from 'react';
 import { useAppContext } from '../context/AppContext';
 import { Transaction, TransactionType } from '../types';
-import QRCodeScanner from './QRCodeScanner';
-import { QRCodeIcon } from './icons';
-
-// Helper function to parse QR code data from Portuguese invoices
-const parseInvoiceQRCode = (qrCodeText: string): { amount: string; date: string; description: string } | null => {
-    try {
-        const fields = qrCodeText.split('*');
-        const data: Record<string, string> = {};
-        fields.forEach(field => {
-            const parts = field.split(':');
-            if (parts.length >= 2) {
-                const key = parts[0];
-                const value = parts.slice(1).join(':');
-                data[key] = value;
-            }
-        });
-
-        const totalAmount = data['N'];
-        const issueDate = data['F'];
-        const merchantNIF = data['A'];
-
-        if (!totalAmount || !issueDate || !merchantNIF) {
-            console.error('QR Code does not contain required fields (N, F, A)');
-            return null;
-        }
-        
-        // Date is in YYYYMMDD format
-        const year = issueDate.substring(0, 4);
-        const month = issueDate.substring(4, 6);
-        const day = issueDate.substring(6, 8);
-        const formattedDate = `${year}-${month}-${day}`;
-
-        // Amount needs comma as decimal separator
-        const formattedAmount = totalAmount.replace('.', ',');
-
-        const description = `Fatura (NIF: ${merchantNIF})`;
-        
-        return { amount: formattedAmount, date: formattedDate, description };
-
-    } catch (error) {
-        console.error("Error parsing QR Code:", error);
-        return null;
-    }
-};
-
 
 const AddTransactionFlowModal: React.FC = () => {
   const { 
@@ -66,9 +22,10 @@ const AddTransactionFlowModal: React.FC = () => {
   const [description, setDescription] = useState('');
   const [date, setDate] = useState('');
   const [time, setTime] = useState('');
-  const [isScanning, setIsScanning] = useState(false);
 
-  const isEditing = transactionToEditInFlow !== null;
+  const isEditing = transactionToEditInFlow !== null && !!transactionToEditInFlow.id;
+  const isDuplicating = transactionToEditInFlow !== null && !transactionToEditInFlow.id;
+  
   const activeAccounts = useMemo(() => accounts.filter(a => a.isActive), [accounts]);
   
   const isPending = useMemo(() => {
@@ -92,7 +49,7 @@ const AddTransactionFlowModal: React.FC = () => {
   useEffect(() => {
     if (isAddTransactionModalOpen) {
       if (transactionToEditInFlow) {
-        // Populate state for editing
+        // Populate state for editing or duplication
         setType(transactionToEditInFlow.type);
         setAmount(String(transactionToEditInFlow.amount).replace('.', ','));
         setDescription(transactionToEditInFlow.description);
@@ -129,20 +86,6 @@ const AddTransactionFlowModal: React.FC = () => {
   if (!isAddTransactionModalOpen) {
     return null;
   }
-  
-  const handleScanSuccess = (decodedText: string) => {
-    const parsedData = parseInvoiceQRCode(decodedText);
-    if (parsedData) {
-        setAmount(parsedData.amount);
-        setDate(parsedData.date);
-        setDescription(parsedData.description);
-        // Default to expense type after scanning a receipt
-        setType(TransactionType.EXPENSE);
-    } else {
-        alert("Não foi possível ler os dados do QR Code. Verifique se é um QR Code de fatura válido.");
-    }
-    setIsScanning(false);
-  };
 
   const handleTypeChange = (newType: TransactionType) => {
     setType(newType);
@@ -210,7 +153,16 @@ const AddTransactionFlowModal: React.FC = () => {
 
   const commonSelectClasses = "mt-1 block w-full bg-gray-100 dark:bg-gray-700 border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 py-3 px-4 text-base";
   const commonInputClasses = "mt-1 block w-full bg-gray-100 dark:bg-gray-700 border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 py-3 px-4 text-base";
-  const modalTitle = isEditing ? (isPending ? 'Confirmar Movimento' : 'Editar Movimento') : 'Novo Movimento';
+
+  const modalTitle = (() => {
+    if (isEditing) {
+        return isPending ? 'Confirmar Movimento' : 'Editar Movimento';
+    }
+    if (isDuplicating) {
+        return 'Duplicar Movimento';
+    }
+    return 'Novo Movimento';
+  })();
 
   return (
     <div
@@ -251,30 +203,20 @@ const AddTransactionFlowModal: React.FC = () => {
                             Este é um movimento agendado. Por favor, confirme ou ajuste o valor final.
                         </p>
                     )}
-                    <div className="relative mt-1 flex items-center gap-2">
-                        <div className="relative flex-grow">
-                            <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-4">
-                                <span className="text-gray-500 dark:text-gray-400 sm:text-lg">€</span>
-                            </div>
-                            <input
-                                type="text"
-                                inputMode="decimal"
-                                id="amount"
-                                value={amount}
-                                onChange={e => setAmount(e.target.value)}
-                                placeholder="0,00"
-                                className="block w-full bg-gray-100 dark:bg-gray-700 border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 pl-10 pr-4 py-3 text-2xl text-center font-bold"
-                                required
-                            />
+                    <div className="relative mt-1">
+                        <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-4">
+                            <span className="text-gray-500 dark:text-gray-400 sm:text-lg">€</span>
                         </div>
-                        <button 
-                            type="button" 
-                            onClick={() => setIsScanning(true)} 
-                            className="p-3 bg-gray-200 dark:bg-gray-700 rounded-md shadow-sm hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
-                            aria-label="Escanear QR Code da Fatura"
-                        >
-                            <QRCodeIcon className="w-7 h-7 text-gray-600 dark:text-gray-300" />
-                        </button>
+                        <input
+                            type="text"
+                            inputMode="decimal"
+                            id="amount"
+                            value={amount}
+                            onChange={e => setAmount(e.target.value)}
+                            placeholder="0,00"
+                            className="block w-full bg-gray-100 dark:bg-gray-700 border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 pl-10 pr-4 py-3 text-2xl text-center font-bold"
+                            required
+                        />
                     </div>
                 </div>
 
@@ -368,15 +310,9 @@ const AddTransactionFlowModal: React.FC = () => {
 
             <div className="flex justify-end space-x-2 mt-4">
                 <button type="button" onClick={closeAddTransactionModal} className="px-4 py-2 bg-gray-200 dark:bg-gray-600 rounded-md hover:bg-gray-300 dark:hover:bg-gray-500">Cancelar</button>
-                <button type="submit" className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700">{isEditing ? 'Guardar Alterações' : 'Adicionar Movimento'}</button>
+                <button type="submit" className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700">{isEditing ? 'Guardar Alterações' : isDuplicating ? 'Adicionar Cópia' : 'Adicionar Movimento'}</button>
             </div>
         </form>
-         {isScanning && (
-            <QRCodeScanner 
-                onScanSuccess={handleScanSuccess}
-                onClose={() => setIsScanning(false)}
-            />
-        )}
       </div>
     </div>
   );

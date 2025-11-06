@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useAppContext } from '../context/AppContext';
 import { Transaction, TransactionType } from '../types';
-import { TrashIcon, PencilIcon } from './icons';
+import { TrashIcon, PencilIcon, DuplicateIcon } from './icons';
 
 interface TransactionDetailModalProps {
   transaction: (Transaction & { runningBalance?: number }) | null;
@@ -44,15 +44,26 @@ const ConfirmationModal: React.FC<{ onConfirm: () => void; onCancel: () => void;
 );
 
 const TransactionDetailModal: React.FC<TransactionDetailModalProps> = ({ transaction, onClose }) => {
-  const { categories, accounts, deleteTransaction, openAddTransactionModalForEdit } = useAppContext();
+  const { categories, accounts, deleteTransaction, openAddTransactionModalForEdit, openTransactionModalForDuplication } = useAppContext();
   const [showConfirmDelete, setShowConfirmDelete] = useState(false);
 
   if (!transaction) return null;
+  
+  const formatCurrency = (value: number) => {
+    return value.toLocaleString('pt-PT', { style: 'currency', currency: 'EUR' });
+  };
 
   const handleEdit = () => {
     if (transaction) {
         openAddTransactionModalForEdit(transaction);
         onClose(); // Close this detail modal
+    }
+  };
+
+  const handleDuplicate = () => {
+    if (transaction) {
+        openTransactionModalForDuplication(transaction);
+        onClose();
     }
   };
 
@@ -91,14 +102,14 @@ const TransactionDetailModal: React.FC<TransactionDetailModalProps> = ({ transac
       >
           <div className="flex justify-between items-start">
               <h2 className="text-2xl font-bold mb-2">Detalhes do Movimento</h2>
-              <button onClick={onClose} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200">&times;</button>
+              <button onClick={onClose} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 text-3xl leading-none">&times;</button>
           </div>
           
           <div className="mt-4 space-y-4">
               <div className="text-center border-b pb-4 border-gray-200 dark:border-gray-700">
                   <p className="text-sm text-gray-500 dark:text-gray-400">{transaction.description}</p>
                   <p className={`text-4xl font-bold my-2 ${amountColor}`}>
-                      {amountPrefix} {(transaction.amount ?? 0).toLocaleString('pt-PT', { style: 'currency', currency: 'EUR' })}
+                      {amountPrefix} {formatCurrency(transaction.amount)}
                   </p>
               </div>
 
@@ -117,7 +128,7 @@ const TransactionDetailModal: React.FC<TransactionDetailModalProps> = ({ transac
                   
                   <DetailRow label="Data" value={`${formattedDate} às ${transaction.time}`} />
                   {typeof transaction.runningBalance === 'number' && (
-                       <DetailRow label="Saldo Após" value={transaction.runningBalance.toLocaleString('pt-PT', { style: 'currency', currency: 'EUR' })} />
+                       <DetailRow label="Saldo Após" value={formatCurrency(transaction.runningBalance)} />
                   )}
               </div>
           </div>
@@ -126,6 +137,10 @@ const TransactionDetailModal: React.FC<TransactionDetailModalProps> = ({ transac
                <button onClick={handleEdit} className="flex items-center gap-2 px-4 py-2 bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300 rounded-md hover:bg-blue-200 dark:hover:bg-blue-800 font-semibold transition">
                   <PencilIcon className="w-5 h-5" />
                   <span>Editar</span>
+              </button>
+              <button onClick={handleDuplicate} className="flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300 rounded-md hover:bg-gray-200 dark:hover:bg-gray-600 font-semibold transition">
+                  <DuplicateIcon className="w-5 h-5" />
+                  <span>Duplicar</span>
               </button>
                <button onClick={handleDelete} className="flex items-center gap-2 px-4 py-2 bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300 rounded-md hover:bg-red-200 dark:hover:bg-red-800 font-semibold transition">
                   <TrashIcon className="w-5 h-5" />

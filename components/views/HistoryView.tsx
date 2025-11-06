@@ -14,6 +14,10 @@ const HistoryView: React.FC = () => {
   const [searchTerm, setSearchTerm] = React.useState('');
   const [debouncedSearchTerm, setDebouncedSearchTerm] = React.useState('');
   const [visibleCount, setVisibleCount] = React.useState(10);
+  
+  const formatCurrency = (value: number) => {
+    return value.toLocaleString('pt-PT', { style: 'currency', currency: 'EUR' });
+  };
 
   // Debounce search term
   React.useEffect(() => {
@@ -186,12 +190,14 @@ const HistoryView: React.FC = () => {
                       <li 
                         key={t.id} 
                         onClick={() => handleTransactionClick(t)}
-                        className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow-sm flex items-center justify-between flex-wrap gap-y-2 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors duration-150"
+                        className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow-sm flex items-center justify-between flex-wrap gap-y-2 hover:bg-gray-50 dark:hover:bg-gray-700/80 transition-colors duration-150 cursor-pointer"
                       >
-                        <div className="flex items-center space-x-4 flex-grow min-w-[200px]">
+                        <div 
+                          className="flex items-center space-x-4 flex-grow min-w-[200px]"
+                        >
                           <div className="text-2xl">{isTransfer ? '🔄' : category?.icon || '💸'}</div>
                           <div>
-                            <p className="font-semibold">{isTransfer ? 'Transferência' : (category?.name || 'Sem Categoria')}</p>
+                            <p className="font-semibold">{t.description}</p>
                             {isTransfer ? (
                                <p className="text-sm text-gray-500 dark:text-gray-400">{account?.name} → {destinationAccount?.name}</p>
                             ) : (
@@ -201,10 +207,10 @@ const HistoryView: React.FC = () => {
                         </div>
                         <div className="text-right">
                           <p className={`font-bold ${isExpense ? 'text-red-500' : isTransfer ? 'text-gray-700 dark:text-gray-200' : 'text-green-500'}`}>
-                          {isExpense ? '-' : isTransfer ? '' : '+'} {(t.amount ?? 0).toLocaleString('pt-PT', { style: 'currency', currency: 'EUR' })}
+                          {isExpense ? '-' : isTransfer ? '' : '+'} {formatCurrency(t.amount)}
                           </p>
                           <p className="text-sm text-gray-500 dark:text-gray-400">
-                            {(t.runningBalance ?? 0).toLocaleString('pt-PT', { style: 'currency', currency: 'EUR' })}
+                            {formatCurrency(t.runningBalance)}
                           </p>
                         </div>
                       </li>

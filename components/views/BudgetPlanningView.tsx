@@ -3,6 +3,10 @@ import { useAppContext } from '../../context/AppContext';
 import { TransactionType } from '../../types';
 import { ChevronLeftIcon, ChevronRightIcon } from '../icons';
 
+const formatCurrency = (value: number) => {
+    return value.toLocaleString('pt-PT', { style: 'currency', currency: 'EUR' });
+};
+
 const StatCard: React.FC<{ title: string; value: string; color?: string }> = ({ title, value, color = 'text-gray-800 dark:text-gray-200' }) => (
   <div className="bg-gray-100 dark:bg-gray-700/50 p-4 rounded-lg text-center">
     <h4 className="text-sm text-gray-500 dark:text-gray-400 font-medium">{title}</h4>
@@ -97,7 +101,7 @@ const CategoryBudgetPlanner: React.FC<PlannerProps> = ({ displayCycleString }) =
                                 <div>
                                     <p className="font-semibold">{category.name}</p>
                                     <p className="text-xs text-gray-500 dark:text-gray-400">
-                                        Média: {average ? average.toLocaleString('pt-PT', { style: 'currency', currency: 'EUR'}) : 'N/D'}
+                                        Média: {average ? formatCurrency(average) : 'N/D'}
                                     </p>
                                 </div>
                             </div>
@@ -120,13 +124,13 @@ const CategoryBudgetPlanner: React.FC<PlannerProps> = ({ displayCycleString }) =
                                     <div>
                                          <label className="text-xs font-medium text-gray-500 dark:text-gray-400">Gasto</label>
                                          <p className="font-semibold text-gray-800 dark:text-gray-200 text-sm truncate">
-                                            {spent.toLocaleString('pt-PT', { style: 'currency', currency: 'EUR'})}
+                                            {formatCurrency(spent)}
                                          </p>
                                     </div>
                                      <div>
                                          <label className="text-xs font-medium text-gray-500 dark:text-gray-400">Diferença</label>
                                           <p className={`font-semibold text-sm truncate ${difference >= 0 ? 'text-green-500' : 'text-red-500'}`}>
-                                            {difference.toLocaleString('pt-PT', { style: 'currency', currency: 'EUR'})}
+                                            {formatCurrency(difference)}
                                          </p>
                                     </div>
                                 </div>
@@ -214,15 +218,15 @@ const OverallBudgetPlanner: React.FC<PlannerProps> = ({ displayCycleString }) =>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <StatCard 
                     title="Planeado"
-                    value={plannedAmount.toLocaleString('pt-PT', { style: 'currency', currency: 'EUR'})}
+                    value={formatCurrency(plannedAmount)}
                 />
                  <StatCard 
                     title="Gasto"
-                    value={spentAmount.toLocaleString('pt-PT', { style: 'currency', currency: 'EUR'})}
+                    value={formatCurrency(spentAmount)}
                 />
                  <StatCard 
                     title="Diferença"
-                    value={difference.toLocaleString('pt-PT', { style: 'currency', currency: 'EUR'})}
+                    value={formatCurrency(difference)}
                     color={difference >= 0 ? 'text-green-500' : 'text-red-500'}
                 />
             </div>
@@ -242,11 +246,11 @@ const OverallBudgetPlanner: React.FC<PlannerProps> = ({ displayCycleString }) =>
                     <div className="text-right text-sm mt-1">
                         {isOverBudget ? (
                             <p className="font-semibold text-red-500">
-                                {Math.abs(difference).toLocaleString('pt-PT', { style: 'currency', currency: 'EUR' })} acima
+                                {formatCurrency(Math.abs(difference))} acima
                             </p>
                         ) : (
                             <p className="text-gray-500 dark:text-gray-400">
-                                Resta: {difference.toLocaleString('pt-PT', { style: 'currency', currency: 'EUR' })}
+                                Resta: {formatCurrency(difference)}
                             </p>
                         )}
                     </div>
